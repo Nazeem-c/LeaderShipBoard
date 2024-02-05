@@ -37,7 +37,6 @@ def get_topper():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 def get_topper_batch():
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -50,11 +49,11 @@ def get_topper_batch():
                     return jsonify({'error': 'Batch parameter is required'}), 400
 
                 cur.execute('''
-                    SELECT s.stud_id, s.stud_name, s.batch, SUM(sc.score) AS total_marks
+                    SELECT s.stud_id, s.stud_name, SUM(sc.score) AS total_marks
                     FROM student s
                     JOIN score sc ON s.stud_id = sc.stud_id
                     WHERE s.batch = %s
-                    GROUP BY s.stud_id, s.stud_name, s.batch
+                    GROUP BY s.stud_id, s.stud_name
                     ORDER BY total_marks DESC;
                 ''', (batch,))
 
@@ -64,12 +63,11 @@ def get_topper_batch():
                 ranked_data = []
                 rank = 1
                 for row in batch_LeadershipBoard:
-                    stud_id, stud_name, student_batch, total_marks = row
+                    stud_id, stud_name, total_marks = row
                     ranked_data.append({
                         'rank': rank,
                         'stud_id': stud_id,
                         'stud_name': stud_name,
-                        'batch': student_batch,
                         'total_marks': total_marks
                     })
                     rank += 1
@@ -120,7 +118,6 @@ def get_topper_dept():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 def get_topper_dept_batch():
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -132,8 +129,6 @@ def get_topper_dept_batch():
                     SELECT
                         s.stud_id,
                         s.stud_name,
-                        d.dep_name,
-                        s.batch,
                         SUM(sc.score) AS total_marks,
                         RANK() OVER (ORDER BY SUM(sc.score) DESC) AS ranking
                     FROM
@@ -143,7 +138,7 @@ def get_topper_dept_batch():
                     WHERE
                         d.dep_name = %s AND s.batch = %s
                     GROUP BY
-                        s.stud_id, s.stud_name, d.dep_name, s.batch
+                        s.stud_id, s.stud_name
                     ORDER BY
                         total_marks DESC;
                 ''', (department, batch))
@@ -156,10 +151,8 @@ def get_topper_dept_batch():
                     student_info = {
                         'stud_id': row[0],
                         'stud_name': row[1],
-                        'dep_name': row[2],
-                        'batch': row[3],
-                        'total_marks': row[4],
-                        'ranking': row[5]
+                        'total_marks': row[2],
+                        'ranking': row[3]
                     }
                     result['LeadershipBoard_dept_batch'].append(student_info)
 
@@ -173,43 +166,49 @@ def get_topper_college_dept():
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
                 clg_name = request.args.get('clg_name')
-                dep_name = request.args.get('dep_name')
 
-                if not clg_name or not dep_name:
-                    return jsonify({'error': 'Both clg_name and dep_name are required'}), 400
+                if not clg_name:
+                    return jsonify({'error': 'clg_name is required'}), 400
 
                 cur.execute('''
                     SELECT
                         s.stud_id,
                         s.stud_name,
-                        d.dep_name,
-                        SUM(sc.score) AS total_marks,
-                        RANK() OVER (ORDER BY SUM(sc.score) DESC) AS ranking
+                        SUM(sc.score) AS total_marks
                     FROM
                         student s
                         JOIN score sc ON s.stud_id = sc.stud_id
                         JOIN department d ON s.dep_id = d.dep_id
                         JOIN college c ON s.clg_id = c.clg_id
                     WHERE
-                        c.clg_name = %s AND d.dep_name = %s
+                        c.clg_name = %s
                     GROUP BY
-                        s.stud_id, s.stud_name, d.dep_name
+                        s.stud_id, s.stud_name
                     ORDER BY
                         total_marks DESC;
-                ''', (clg_name, dep_name))
+                ''', (clg_name,))
 
                 dept_LeadershipBoard = cur.fetchall()
                 formatted_output = []
 
+                rank = 1
+                prev_marks = None
+
                 for row in dept_LeadershipBoard:
+                    current_marks = row[2]
+
                     student_info = {
                         'stud_id': row[0],
                         'stud_name': row[1],
-                        'dep_name': row[2],
-                        'total_marks': row[3],
-                        'ranking': row[4]
+                        'total_marks': current_marks,
+                        'ranking': rank
                     }
                     formatted_output.append(student_info)
+
+                    if prev_marks is not None and current_marks != prev_marks:
+                        rank += 1
+
+                    prev_marks = current_marks
 
                 return jsonify({'LeadershipBoard_college_dept': formatted_output})
 
@@ -268,6 +267,66 @@ def get_topper_college_dept_batch():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def get_topper_college_dept_batch_sem():
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                clg_name = request.args.get('clg_name')
+                dep_name = request.args.get('dep_name')
+                batch = request.args.get('batch')
+                sem_no = request.args.get('sem_no')
+
+                if not clg_name or not dep_name or not batch or not sem_no:
+                    return jsonify({'error': 'clg_name, dep_name, batch, and sem_no are required parameters'}), 400
+
+                cur.execute('''
+                    SELECT
+                        s.stud_id,
+                        s.stud_name,
+                        d.dep_name,
+                        s.batch,
+                        SUM(sc.score) AS total_marks,
+                        RANK() OVER (ORDER BY SUM(sc.score) DESC) AS ranking
+                    FROM
+                        student s
+                        JOIN score sc ON s.stud_id = sc.stud_id
+                        JOIN department d ON s.dep_id = d.dep_id
+                        JOIN college c ON s.clg_id = c.clg_id
+                        JOIN semester sm ON d.dep_id = sm.dep_id
+                    WHERE
+                        c.clg_name = %s AND d.dep_name = %s AND s.batch = %s AND sm.sem_no = %s
+                    GROUP BY
+                        s.stud_id, s.stud_name, d.dep_name, s.batch
+                    ORDER BY
+                        total_marks DESC;
+                ''', (clg_name, dep_name, batch, sem_no))
+
+                dept_LeadershipBoard = cur.fetchall()
+
+                formatted_output = {
+                    'college_name': clg_name,
+                    'department_name': dep_name,
+                    'batch': batch,
+                    'semester': sem_no,
+                    'toppers': [
+                        {
+                            'stud_id': row[0],
+                            'stud_name': row[1],
+                            'department_name': row[2],
+                            'batch': row[3],
+                            'total_marks': row[4],
+                            'ranking': row[5]
+                        }
+                        for row in dept_LeadershipBoard
+                    ]
+                }
+
+                return jsonify({'LeadershipBoard_college_dept_batch_sem': formatted_output})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 def get_all_students():
     try:
@@ -516,6 +575,7 @@ def get_leadership_board():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 def fetch_courses_for_student(stud_id, sem_no):
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -539,3 +599,207 @@ def fetch_courses_for_student(stud_id, sem_no):
 
     except Exception as e:
         return [{'error': str(e)}]
+
+
+def list_colleges():
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                # Construct the SQL query to calculate average score and pass percentage for each college
+                sql_query = '''
+                    SELECT
+                        c.clg_id,
+                        c.clg_name,
+                        AVG(sc.score) AS average_score,
+                        AVG(CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END) * 100 AS pass_percentage
+                    FROM
+                        college c
+                        LEFT JOIN student s ON c.clg_id = s.clg_id
+                        LEFT JOIN score sc ON s.stud_id = sc.stud_id
+                    GROUP BY
+                        c.clg_id, c.clg_name
+                '''
+
+                cur.execute(sql_query)
+                college_data = cur.fetchall()
+
+                # Calculate college rank based on a combination of average score and pass percentage
+                ranked_colleges = []
+                for idx, college in enumerate(sorted(college_data, key=lambda x: (x[2] or Decimal(0), x[3] or Decimal(0)), reverse=True), start=1):
+                    clg_id, clg_name, average_score, pass_percentage = college
+                    rank = idx
+
+                    ranked_colleges.append({
+                        'rank': rank,
+                        'college_details': {
+                            'clg_id': clg_id,
+                            'clg_name': clg_name,
+                            'average_score': average_score,
+                            'pass_percentage': min(pass_percentage or Decimal(0), 100)  # Ensure pass percentage is within 100
+                        }
+                    })
+
+        return jsonify({'ranked_colleges': ranked_colleges})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def get_college_info():
+    try:
+        # Get college_name from the request parameters
+        college_name = request.args.get('clg_name')
+
+        if not college_name:
+            return jsonify({'error': 'College name parameter is required'})
+
+        # Database connection
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cursor:
+                # Get college_id for the given college_name
+                cursor.execute("SELECT clg_id FROM public.college WHERE clg_name = %s", (college_name,))
+                college_id = cursor.fetchone()
+
+                if not college_id:
+                    return jsonify({'error': f'College with name {college_name} not found'})
+
+                college_id = college_id[0]
+
+                # Get department details for the specified college
+                cursor.execute("SELECT dep_id, dep_name FROM public.department WHERE dep_id IN (SELECT department_dep_id FROM public.college_department WHERE college_clg_id = %s)", (college_id,))
+                departments = cursor.fetchall()
+
+                college_info = {'college_name': college_name, 'departments': []}
+
+                for dep_id, dep_name in departments:
+                    department_info = {'dep_id': dep_id, 'dep_name': dep_name, 'batches': []}
+
+                    # Get batch-wise student details for the department
+                    cursor.execute("SELECT DISTINCT batch FROM public.student WHERE dep_id = %s", (dep_id,))
+                    batches = cursor.fetchall()
+
+                    for batch in batches:
+                        batch_info = {'batch': batch[0], 'students': []}
+
+                        # Get student details for the batch
+                        cursor.execute("""
+                            SELECT s.stud_id, s.stud_name
+                            FROM public.student s
+                            WHERE s.dep_id = %s AND s.batch = %s
+                        """, (dep_id, batch[0]))
+                        students = cursor.fetchall()
+
+                        student_scores = []  # List to store tuples (total_score, stud_id, student_info) for sorting
+                        for stud_id, stud_name in students:
+                            student_info = {
+                                'stud_id': stud_id,
+                                'stud_name': stud_name,
+                                'total_score': 0  # Initialize total score
+                            }
+
+                            # Get total score for the student
+                            cursor.execute("""
+                                SELECT COALESCE(SUM(score), 0)
+                                FROM public.score
+                                WHERE stud_id = %s
+                            """, (stud_id,))
+                            total_score = cursor.fetchone()[0]
+                            student_info['total_score'] = total_score
+
+                            student_scores.append((total_score, stud_id, student_info))
+
+                        # Sort students based on total score and stud_id in descending order
+                        student_scores.sort(key=lambda x: (x[0], -x[1]), reverse=True)
+                        rank = 0
+                        prev_total_score = float('inf')
+
+                        for total_score, stud_id, student_info in student_scores:
+                            if total_score < prev_total_score:
+                                rank += 1
+                            student_info['rank'] = rank
+                            prev_total_score = total_score
+                            batch_info['students'].append(student_info)
+
+                        department_info['batches'].append(batch_info)
+
+                    college_info['departments'].append(department_info)
+
+        # Return the college_info
+        return jsonify(college_info)
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
+def get_students_details_dept():
+    try:
+        # Extract department name from query parameters
+        department_name = request.args.get('dept_name')
+
+        if not department_name:
+            return jsonify({'error': 'Department name parameter is required'}), 400
+
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cursor:
+                # Construct the SQL query with department and college information
+                sql_query = '''
+                    SELECT
+                        cl.clg_name as college_name,
+                        s.stud_id,
+                        s.stud_name,
+                        s.batch,
+                        COALESCE(SUM(sc.score), 0) AS total_score
+                    FROM
+                        student s
+                        JOIN department d ON s.dep_id = d.dep_id
+                        JOIN college cl ON s.clg_id = cl.clg_id  -- Adjust based on your actual relationship
+                        LEFT JOIN score sc ON s.stud_id = sc.stud_id
+                    WHERE
+                        d.dep_name = %s
+                    GROUP BY
+                        cl.clg_name, s.stud_id, s.stud_name, s.batch
+                    ORDER BY
+                        s.batch, total_score DESC, s.stud_id;
+                '''
+
+                cursor.execute(sql_query, (department_name,))
+                student_data = cursor.fetchall()
+
+                # Organize data into the desired structure
+                departments_with_batches = {}
+                current_batch = None
+                current_student = None
+                current_rank = 0
+                previous_total_score = None
+
+                for row in student_data:
+                    college_name, stud_id, stud_name, batch, total_score = row
+
+                    if batch not in departments_with_batches:
+                        departments_with_batches[batch] = {
+                            'students': []
+                        }
+
+                    # Start a new student record within the batch
+                    current_student = {
+                        'college_name': college_name,
+                        'stud_id': stud_id,
+                        'stud_name': stud_name,
+                        'total_score': total_score,
+                        'rank': 0  # Rank will be assigned later
+                    }
+                    departments_with_batches[batch]['students'].append(current_student)
+
+                    # Assign ranks based on the total score within each batch
+                    if total_score == previous_total_score:
+                        current_student['rank'] = current_rank
+                    else:
+                        current_rank += 1
+                        current_student['rank'] = current_rank
+
+                    previous_total_score = total_score
+
+        return jsonify(departments_with_batches)
+
+    except Exception as e:
+        return jsonify({'error': f'Something went wrong: {str(e)}'}), 500

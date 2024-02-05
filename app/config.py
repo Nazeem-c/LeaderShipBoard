@@ -1,4 +1,4 @@
 
 
 
-db_params = {'database': 'LeaderShipBoard', 'host': 'localhost', 'user': 'postgres', 'password':'postgres', 'port':'5432'}
+db_params = {'database': 'LeaderShipBoardV1', 'host': 'localhost', 'user': 'postgres', 'password':'postgres', 'port':'5432'}

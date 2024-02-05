@@ -1,4 +1,4 @@
-from services.admin import admin,get_college,add_college,update_college,delete_college
+from services.admin import admin,get_college,add_college,update_college,delete_college,add_student
 from flask import Blueprint
 
 
@@ -28,3 +28,6 @@ def updatecollege():
 def deletecollege():
     return delete_college()
 
+@admin_router.route('/student', methods=['POST'])
+def addstudent():
+    return add_student()

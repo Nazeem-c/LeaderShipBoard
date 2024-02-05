@@ -956,3 +956,231 @@ def get_leadership_board():
  
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
+
+#ranking college based on avg score and pass percentage
+@app.route('/colleges', methods=['GET'])
+def list_colleges():    
+    try:
+        conn = db_conn()
+        cur = conn.cursor()
+ 
+        # Construct the SQL query to calculate average score and pass percentage for each college
+        sql_query = '''
+            SELECT
+                c.clg_id,
+                c.clg_name,
+                AVG(sc.score) AS average_score,
+                AVG(CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END) * 100 AS pass_percentage
+            FROM
+                college c
+                LEFT JOIN student s ON c.clg_id = s.clg_id
+                LEFT JOIN score sc ON s.stud_id = sc.stud_id
+            GROUP BY
+                c.clg_id, c.clg_name
+        '''
+ 
+        cur.execute(sql_query)
+        college_data = cur.fetchall()
+ 
+        # Calculate college rank based on a combination of average score and pass percentage
+        ranked_colleges = []
+        for idx, college in enumerate(sorted(college_data, key=lambda x: (x[2] or Decimal(0), x[3] or Decimal(0)), reverse=True), start=1):
+            clg_id, clg_name, average_score, pass_percentage = college
+            rank = idx
+ 
+            ranked_colleges.append({
+                'rank': rank,
+                'college_details': {
+                    'clg_id': clg_id,
+                    'clg_name': clg_name,
+                    'average_score': average_score,
+                    'pass_percentage': min(pass_percentage or Decimal(0), 100)  # Ensure pass percentage is within 100
+                }
+            })
+ 
+        conn.close()
+ 
+        return jsonify({'ranked_colleges': ranked_colleges})
+ 
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+#student registration , sending u.name and password
+ 
+from flask import Flask, request, jsonify
+import psycopg2
+import re
+import uuid
+import random
+import string
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+ 
+app = Flask(__name__)
+ 
+# Database configuration
+db_params = {
+    'dbname': 'LeaderShipBoard',
+    'user': 'postgres',
+    'password': 'postgres',
+    'host': 'localhost',
+    'port': '5432'
+}
+ 
+def db_conn():
+    conn = psycopg2.connect(**db_params)
+    return conn
+ 
+def generate_username(stud_name):
+    unique_id = str(uuid.uuid4().hex)[:8]
+    username = stud_name.lower().replace(' ', '_') + '_' + unique_id
+    return username
+ 
+def generate_password():
+    password_length = 8
+    password_characters = string.ascii_letters + string.digits
+    password = ''.join(random.choice(password_characters) for i in range(password_length))
+    return password
+ 
+def is_email_valid(email):
+    # Email validation using a regular expression
+    pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+    return bool(re.match(pattern, email))
+ 
+def is_email_unique(email, cursor):
+    # Check if the email is unique in the database
+    query = "SELECT COUNT(*) FROM student WHERE mail = %s"
+    cursor.execute(query, (email,))
+    count = cursor.fetchone()[0]
+    return count == 0
+ 
+def send_mail(email, username, password, fname, mname, lname):
+    recipient_email = email
+    
+    # SMTP server settings
+    smtp_server = 'smtp-relay.brevo.com'
+    port = 587  # Change to 465 if using SSL
+    smtp_username = 'teamsmv02@gmail.com'
+    smtp_password = 'bTOSmPMkJEdpsFL1'
+    smtp_sender_email = 'teamsmv02@gmail.com'
+ 
+    # Create a multipart message
+    message = MIMEMultipart()
+    message['From'] = smtp_sender_email
+    message['To'] = recipient_email
+    message['Subject'] = 'Login Credentials - University Portal'
+ 
+    # Add message body
+    body = f"""
+Dear {fname} {mname} {lname},
+ 
+Welcome to the University Portal! Below are your login credentials:
+ 
+Username: {username}
+Temporary Password: {password}
+ 
+"""
+    message.attach(MIMEText(body, 'plain'))
+ 
+    server = None  # Initialize the variable
+ 
+    try:
+        # Connect to the SMTP server
+        server = smtplib.SMTP(smtp_server, port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+ 
+        # Send the email
+        server.send_message(message)
+        print(f'Email sent to {recipient_email}!')
+    except smtplib.SMTPAuthenticationError as e:
+        print(f'Authentication failed. Check your credentials. {e}')
+    except smtplib.SMTPException as e:
+        print(f'Error while sending email. {e}')
+    finally:
+        if server:
+            # Disconnect from the server
+            server.quit()
+ 
+
+# Route to list students with details for a specific department name
+@app.route('/students', methods=['GET'])
+def get_students_details():
+    try:
+        # Extract department name from query parameters
+        department_name = request.args.get('department_name')
+ 
+        if not department_name:
+            return jsonify({'error': 'Department name parameter is required'}), 400
+ 
+        conn = db_conn()
+        cur = conn.cursor()
+ 
+        # Construct the SQL query with department and college information
+        sql_query = '''
+            SELECT
+                cl.clg_name as college_name,
+                s.stud_id,
+                s.stud_name,
+                s.batch,
+                COALESCE(SUM(sc.score), 0) AS total_score
+            FROM
+                student s
+                JOIN department d ON s.dep_id = d.dep_id
+                JOIN college cl ON s.clg_id = cl.clg_id  -- Adjust based on your actual relationship
+                LEFT JOIN score sc ON s.stud_id = sc.stud_id
+            WHERE
+                d.dep_name = %s
+            GROUP BY
+                cl.clg_name, s.stud_id, s.stud_name, s.batch
+            ORDER BY
+                s.batch, total_score DESC, s.stud_id;
+        '''
+ 
+        cur.execute(sql_query, (department_name,))
+        student_data = cur.fetchall()
+ 
+        # Organize data into the desired structure
+        departments_with_batches = {}
+        current_batch = None
+        current_student = None
+        current_rank = 0
+        previous_total_score = None
+ 
+        for row in student_data:
+            college_name, stud_id, stud_name, batch, total_score = row
+ 
+            if batch not in departments_with_batches:
+                departments_with_batches[batch] = {
+                    'students': []
+                }
+ 
+            # Start a new student record within the batch
+            current_student = {
+                'college_name': college_name,
+                'stud_id': stud_id,
+                'stud_name': stud_name,
+                'total_score': total_score,
+                'rank': 0  # Rank will be assigned later
+            }
+            departments_with_batches[batch]['students'].append(current_student)
+ 
+            # Assign ranks based on the total score within each batch
+            if total_score == previous_total_score:
+                current_student['rank'] = current_rank
+            else:
+                current_rank += 1
+                current_student['rank'] = current_rank
+ 
+            previous_total_score = total_score
+ 
+        conn.close()
+ 
+        return jsonify(departments_with_batches)
+ 
+    except Exception as e:
+        return jsonify({'error': f'Something went wrong: {str(e)}'}), 500
+ 

@@ -1,6 +1,9 @@
 
-from services.public import get_topper,get_topper_batch,get_topper_dept,get_topper_dept_batch,get_topper_college_dept,get_topper_college_dept_batch,get_all_students,get_students_details,get_leadership_board
+# from services.public import get_topper,get_topper_batch,get_topper_dept,get_topper_dept_batch,get_topper_college_dept,get_topper_college_dept_batch,get_all_students,get_students_details,get_leadership_board,get_topper_college_dept_batch_sem
 from flask import Blueprint
+
+from services.public import *
+
 
 public_router=Blueprint("public",__name__,url_prefix="/api/v1")
 
@@ -30,6 +33,10 @@ def gettoppercollege():
 def gettopperfullfilter():
     return get_topper_college_dept_batch()
 
+@public_router.route('/leaderboardCollegedeptbatchsem', methods=['GET']) #full filter
+def gettoppersemfilter():
+    return get_topper_college_dept_batch_sem()
+
 @public_router.route('/students', methods=['GET'])
 def studentscore():
     return get_all_students()
@@ -43,4 +50,19 @@ def studentdetails():
 def batchsem():
     return get_leadership_board()
 
+#ranking college based on avg score and pass percentage
+@public_router.route('/colleges', methods=['GET'])
+def collegelist():
+    return list_colleges()
 
+
+#  based on the given college, it shows student rank in each batch in each department--IMP
+@public_router.route('/college_info', methods=['GET'])
+def collegeinfo():
+    return get_college_info()
+
+
+# Route to list students with details for a specific department name
+@public_router.route('/studentses', methods=['GET'])
+def studentdet():
+    return get_students_details_dept()

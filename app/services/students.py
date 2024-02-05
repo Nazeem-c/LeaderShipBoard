@@ -4,7 +4,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import timedelta
 from config import db_params
 import psycopg2
-
+from flask import Flask, request, jsonify
 
 
 def student():
@@ -148,3 +148,6 @@ def get_current_semester():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+ 
