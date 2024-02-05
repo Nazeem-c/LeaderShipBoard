@@ -80,7 +80,7 @@ def stud_average_score():
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
-                if 'username' not in session:
+                if 'login_id' not in session or 'roll' not in session or session['roll'] != 'student':
                     return jsonify({'message': 'Unauthorized'}), 401
 
                 # Get stud_id from the query parameters
@@ -117,7 +117,7 @@ def get_current_semester():
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
-                if 'username' not in session:
+                if 'login_id' not in session or 'roll' not in session or session['roll'] != 'student':
                     return jsonify({'message': 'Unauthorized'}), 401
 
                 # Get stud_id from the query parameters
