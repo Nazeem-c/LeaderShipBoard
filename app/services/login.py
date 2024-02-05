@@ -28,9 +28,9 @@ def login():
             session['roll'] = user[2]
 
             if user[2] == 'admin':
-                return redirect(url_for('adminpage'))
+                return redirect(url_for('admin.adminpage'))
             elif user[2] == 'student':
-                return redirect(url_for('studentpage'))
+                return redirect(url_for('student.studentpage'))
             else:
                 return jsonify({'error': 'Invalid role'}), 401
         else:
