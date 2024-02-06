@@ -45,6 +45,20 @@ def add_course():
     return addcourse()
 
 #updateCourse
-@app.route('/course', methods=['PUT'])
+@admin_router.route('/course', methods=['PUT'])
 def update_course():
     return updatecourse()
+
+
+#------------------------------------score---------------------------------------
+
+
+@admin_router.route('/score', methods=['POST'])
+def add_score():
+    return addscore()
+
+
+
+@admin_router.route('/mail-score', methods=['POST'])
+def mail_score():
+    return mailscore()

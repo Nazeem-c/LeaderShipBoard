@@ -4,6 +4,7 @@ from datetime import timedelta
 from config import db_params
 import psycopg2
 from utils.usnamepaswrdgnrtn import *
+from utils.mailscore import *
 
 
 
@@ -344,3 +345,70 @@ def updatecourse():
         conn.rollback()
         return jsonify({'error': str(e)}), 500
     
+def addscore():
+    try:
+        if 'login_id' not in session or 'roll' not in session or session['roll'] != 'admin':
+            return jsonify({'message': 'Unauthorized'}), 401
+
+        with psycopg2.connect(**db_params) as conn, conn.cursor() as cur:
+            # Extract data for the score table from request parameters
+            stud_id = request.args.get('stud_id')
+            course_id = request.json.get('course_id')
+            score = request.json.get('score')
+
+            # Insert data into the score table
+            cur.execute('''
+                INSERT INTO public.score (stud_id, course_id, score)
+                VALUES (%s, %s, %s);
+            ''', (stud_id, course_id, score,))
+
+            # Commit the transaction
+            conn.commit()
+
+        return jsonify({'message': 'Score added successfully'})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+def mailscore():
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+ 
+            # Check if required field is present
+            if 'stud_id' not in data:
+                return jsonify({'error': 'Missing required field: stud_id'})
+ 
+            # Database connection
+            connection = db_conn()
+            cursor = connection.cursor()
+ 
+            # Get email by stud_id
+            recipient_email = get_email_by_stud_id(data['stud_id'], cursor)
+ 
+            if recipient_email:
+                # Get scores by stud_id
+                scores = get_scores_by_stud_id(data['stud_id'], cursor)
+ 
+                # Close connection
+                cursor.close()
+                connection.close()
+ 
+                # Send email with score details
+                email_body = generate_email_body(data['stud_id'], scores)
+                send_email(recipient_email, 'Scores Added', email_body)
+                return jsonify({'message': 'Email sent successfully!'})
+            else:
+                cursor.close()
+                connection.close()
+                return jsonify({'error': 'Email not found for the provided stud_id'})
+ 
+        except Exception as e:
+            return jsonify({'error': str(e)})
+ 
