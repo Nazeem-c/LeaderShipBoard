@@ -33,9 +33,9 @@ def gettoppercollege():
 def gettopperfullfilter():
     return get_topper_college_dept_batch()
 
-@public_router.route('/leaderboardCollegedeptbatchsem', methods=['GET']) #full filter
+@public_router.route('/leaderboard', methods=['GET']) #full filter
 def gettoppersemfilter():
-    return get_topper_college_dept_batch_sem()
+    return leaderboard()
 
 @public_router.route('/students', methods=['GET'])
 def studentscore():

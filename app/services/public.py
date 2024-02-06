@@ -267,8 +267,8 @@ def get_topper_college_dept_batch():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-def get_topper_college_dept_batch_sem():
+    
+def leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
@@ -277,32 +277,61 @@ def get_topper_college_dept_batch_sem():
                 batch = request.args.get('batch')
                 sem_no = request.args.get('sem_no')
 
-                if not clg_name or not dep_name or not batch or not sem_no:
-                    return jsonify({'error': 'clg_name, dep_name, batch, and sem_no are required parameters'}), 400
-
-                cur.execute('''
+                # Construct the base SQL query
+                base_query = '''
                     SELECT
+                        c.clg_name,
                         s.stud_id,
                         s.stud_name,
                         d.dep_name,
                         s.batch,
-                        SUM(sc.score) AS total_marks,
-                        RANK() OVER (ORDER BY SUM(sc.score) DESC) AS ranking
+                        COALESCE(SUM(CASE WHEN sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) AS total_marks,
+                        RANK() OVER (ORDER BY COALESCE(SUM(CASE WHEN sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) DESC) AS ranking
                     FROM
                         student s
                         JOIN score sc ON s.stud_id = sc.stud_id
                         JOIN department d ON s.dep_id = d.dep_id
                         JOIN college c ON s.clg_id = c.clg_id
                         JOIN semester sm ON d.dep_id = sm.dep_id
-                    WHERE
-                        c.clg_name = %s AND d.dep_name = %s AND s.batch = %s AND sm.sem_no = %s
+                '''
+
+                params = [sem_no, sem_no]
+
+                # Check and append college condition
+                if clg_name:
+                    base_query += ' WHERE c.clg_name = %s'
+                    params.append(clg_name)
+
+                # Check and append department condition
+                if dep_name:
+                    if clg_name:
+                        base_query += ' AND'
+                    else:
+                        base_query += ' WHERE'
+                    base_query += ' d.dep_name = %s'
+                    params.append(dep_name)
+
+                # Check and append batch condition
+                if batch:
+                    if clg_name or dep_name:
+                        base_query += ' AND'
+                    else:
+                        base_query += ' WHERE'
+                    base_query += ' s.batch = %s'
+                    params.append(batch)
+
+                base_query += '''
                     GROUP BY
-                        s.stud_id, s.stud_name, d.dep_name, s.batch
+                        c.clg_name, s.stud_id, s.stud_name, d.dep_name, s.batch
                     ORDER BY
                         total_marks DESC;
-                ''', (clg_name, dep_name, batch, sem_no))
+                '''
 
+                cur.execute(base_query, tuple(params))
                 dept_LeadershipBoard = cur.fetchall()
+
+                if not dept_LeadershipBoard:
+                    return jsonify({'error': 'No data found for the given parameters'}), 404
 
                 formatted_output = {
                     'college_name': clg_name,
@@ -311,21 +340,24 @@ def get_topper_college_dept_batch_sem():
                     'semester': sem_no,
                     'toppers': [
                         {
-                            'stud_id': row[0],
-                            'stud_name': row[1],
-                            'department_name': row[2],
-                            'batch': row[3],
-                            'total_marks': row[4],
-                            'ranking': row[5]
+                            'stud_id': row[1],
+                            'stud_name': row[2],
+                            'department_name': row[3],
+                            'batch': row[4],
+                            'total_marks': row[5],
+                            'ranking': row[6]
                         }
                         for row in dept_LeadershipBoard
                     ]
                 }
 
-                return jsonify({'LeadershipBoard_college_dept_batch_sem': formatted_output})
+                return jsonify({'LeadershipBoard': formatted_output})
 
+    except psycopg2.Error as e:
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)}), 400
+
 
 
 def get_all_students():
