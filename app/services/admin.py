@@ -254,3 +254,93 @@ def add_student():
 
         except Exception as e:
             return jsonify({'error': str(e)})
+
+def fetch_course():
+    try:
+        if 'login_id' not in session or 'roll' not in session or session['roll'] != 'admin':
+            return jsonify({'message': 'Unauthorized'}), 401
+
+        with psycopg2.connect(**db_params) as conn, conn.cursor() as cursor:
+            # Fetch all courses
+            cursor.execute('SELECT course_id, course_name FROM public.course;')
+
+            # Fetch all the results
+            result = cursor.fetchall()
+
+            # Convert the result to a list of dictionaries for JSON response
+            courses = [{'course_id': row[0], 'course_name': row[1]} for row in result]
+
+            return jsonify({'courses': courses})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+def addcourse():
+    try:
+        if 'login_id' not in session or 'roll' not in session or session['roll'] != 'admin':
+            return jsonify({'message': 'Unauthorized'}), 401
+
+        with psycopg2.connect(**db_params) as conn, conn.cursor() as cursor:
+            # Extract data for the course table from JSON data
+            data = request.get_json()
+            sem_id = data.get('sem_id')
+            course_name = data.get('course_name')
+
+            # Check if sem_id is provided
+            if not sem_id:
+                return jsonify({'error': 'sem_id is required'}), 400
+
+            # Check if the provided sem_id exists in the semester table
+            cursor.execute("SELECT sem_id FROM public.semester WHERE sem_id = %s", (sem_id,))
+            if not cursor.fetchone():
+                return jsonify({'error': 'Invalid sem_id'}), 400
+
+            # Check if the course with the same name already exists in the specified semester
+            cursor.execute("SELECT course_id FROM public.course WHERE course_name = %s AND sem_id = %s", (course_name, sem_id))
+            existing_course_id = cursor.fetchone()
+
+            if existing_course_id:
+                return jsonify({'error': 'Course with the same name already exists in the specified semester'}), 400
+
+            # Insert data into the course table
+            cursor.execute('''
+                INSERT INTO public.course (course_name, sem_id)
+                VALUES (%s, %s)
+                RETURNING course_id;
+            ''', (course_name, sem_id))
+
+            # Fetch the generated course_id
+            course_id = cursor.fetchone()[0]
+
+            # Commit the transaction
+            conn.commit()
+
+            return jsonify({'message': 'Course added successfully', 'course_id': course_id})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    
+def updatecourse():
+    try:
+        if 'login_id' not in session or 'roll' not in session or session['roll'] != 'admin':
+            return jsonify({'message': 'Unauthorized'}), 401
+
+        with psycopg2.connect(**db_params) as conn, conn.cursor() as cur:
+            # Extract data from query parameters
+            course_id = request.args.get('course_id')
+            course_name = request.json.get('course_name')
+
+            # Update data in the course table
+            cur.execute('''
+                UPDATE public.course
+                SET course_name = %s
+                WHERE course_id = %s;
+            ''', (course_name, course_id))
+
+            # Commit the transaction
+            conn.commit()
+
+        return jsonify({'message': 'Course updated successfully'})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    
