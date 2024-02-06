@@ -57,7 +57,7 @@ def collegelist():
 
 
 #  based on the given college, it shows student rank in each batch in each department--IMP
-@public_router.route('/college_info', methods=['GET'])
+@public_router.route('/college-info', methods=['GET'])
 def collegeinfo():
     return get_college_info()
 
