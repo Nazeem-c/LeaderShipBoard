@@ -267,7 +267,6 @@ def get_topper_college_dept_batch():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    
 def leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -320,6 +319,15 @@ def leaderboard():
                     base_query += ' s.batch = %s'
                     params.append(batch)
 
+                # Append semester condition only if sem_no is provided
+                if sem_no:
+                    if clg_name or dep_name or batch:
+                        base_query += ' AND'
+                    else:
+                        base_query += ' WHERE'
+                    base_query += ' sm.sem_no = %s'
+                    params.append(sem_no)
+
                 base_query += '''
                     GROUP BY
                         c.clg_name, s.stud_id, s.stud_name, d.dep_name, s.batch
@@ -357,7 +365,6 @@ def leaderboard():
         return jsonify({'error': f'Database error: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
 
 
 def get_all_students():
