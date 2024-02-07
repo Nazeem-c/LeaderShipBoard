@@ -663,7 +663,7 @@ def add_student():
                 login_id
             ))
  
-            # Commit changes and close 
+            # Commit changes and close connection ....
             connection.commit()
             cursor.close()
             connection.close()
