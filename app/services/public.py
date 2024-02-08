@@ -267,6 +267,8 @@ def get_topper_college_dept_batch():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
 def leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -279,13 +281,10 @@ def leaderboard():
                 # Construct the base SQL query
                 base_query = '''
                     SELECT
-                        c.clg_name,
                         s.stud_id,
                         s.stud_name,
-                        d.dep_name,
-                        s.batch,
-                        COALESCE(SUM(CASE WHEN sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) AS total_marks,
-                        RANK() OVER (ORDER BY COALESCE(SUM(CASE WHEN sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) DESC) AS ranking
+                        COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) AS total_marks,
+                        DENSE_RANK() OVER (ORDER BY COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) DESC) AS ranking
                     FROM
                         student s
                         JOIN score sc ON s.stud_id = sc.stud_id
@@ -294,7 +293,7 @@ def leaderboard():
                         JOIN semester sm ON d.dep_id = sm.dep_id
                 '''
 
-                params = [sem_no, sem_no]
+                params = [sem_no, sem_no, sem_no, sem_no]
 
                 # Check and append college condition
                 if clg_name:
@@ -319,18 +318,9 @@ def leaderboard():
                     base_query += ' s.batch = %s'
                     params.append(batch)
 
-                # Append semester condition only if sem_no is provided
-                if sem_no:
-                    if clg_name or dep_name or batch:
-                        base_query += ' AND'
-                    else:
-                        base_query += ' WHERE'
-                    base_query += ' sm.sem_no = %s'
-                    params.append(sem_no)
-
                 base_query += '''
                     GROUP BY
-                        c.clg_name, s.stud_id, s.stud_name, d.dep_name, s.batch
+                        s.stud_id, s.stud_name
                     ORDER BY
                         total_marks DESC;
                 '''
@@ -342,30 +332,23 @@ def leaderboard():
                     return jsonify({'error': 'No data found for the given parameters'}), 404
 
                 formatted_output = {
-                    'college_name': clg_name,
-                    'department_name': dep_name,
-                    'batch': batch,
-                    'semester': sem_no,
-                    'toppers': [
+                    'leaderboard': [
                         {
-                            'stud_id': row[1],
-                            'stud_name': row[2],
-                            'department_name': row[3],
-                            'batch': row[4],
-                            'total_marks': row[5],
-                            'ranking': row[6]
+                            'stud_id': row[0],
+                            'stud_name': row[1],
+                            'total_marks': row[2],
+                            'ranking': row[3]
                         }
                         for row in dept_LeadershipBoard
                     ]
                 }
 
-                return jsonify({'LeadershipBoard': formatted_output})
+                return jsonify(formatted_output)
 
     except psycopg2.Error as e:
         return jsonify({'error': f'Database error: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
 
 def get_all_students():
     try:

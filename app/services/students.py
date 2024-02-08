@@ -13,7 +13,6 @@ def student():
         return jsonify({'message': 'Welcome to the student portal, ' + session['username']})
     else:
         return redirect(url_for('login'))
-
 def get_student_details():
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -21,60 +20,69 @@ def get_student_details():
                 # Retrieve stud_id from the request parameters
                 stud_id = request.args.get('stud_id')
 
-                if 'login_id' not in session or 'roll' not in session or session['roll'] != 'student':
-                    return jsonify({'message': 'Unauthorized'}), 401
-
-                # Execute a SQL query to fetch student details from the database
+                # Execute a SQL query to fetch student details with course scores and semester information
                 cur.execute('''
                     SELECT
                         student.stud_name,
-                        college.clg_name,
-                        department.dep_name,
                         course.course_name,
+                        semester.sem_no,
                         score.score
                     FROM
                         public.student
                     JOIN
-                        public.college ON student.clg_id = college.clg_id
-                    JOIN
-                        public.department ON student.dep_id = department.dep_id
-                    JOIN
                         public.score ON student.stud_id = score.stud_id
                     JOIN
                         public.course ON score.course_id = course.course_id
+                    JOIN
+                        public.semester ON course.sem_id = semester.sem_id
                     WHERE
-                        student.stud_id = %s;
+                        student.stud_id = %s
+                    ORDER BY
+                        semester.sem_no, course.course_name;
                 ''', (stud_id,))
 
                 result = cur.fetchall()
 
                 # Check if data is found and construct a JSON response
                 if result:
+                    student_name = result[0][0]
                     student_details = {
-                        'stud_name': result[0][0],
-                        'college': {
-                            'clg_name': result[0][1],
-                            'department': {
-                                'dep_name': result[0][2]
-                            }
-                        },
-                        'courses': []
+                        'student_name': student_name,
+                        'semesters': {}
                     }
 
                     for row in result:
-                        student_details['courses'].append({
-                            'course_name': row[3],
-                            'score': row[4]
+                        course_name = row[1]
+                        sem_no = row[2]
+                        score = row[3]
+
+                        # Create a semester entry if it doesn't exist
+                        if sem_no not in student_details['semesters']:
+                            student_details['semesters'][sem_no] = {
+                                'semester_name': f'Semester {sem_no}',  # Add this line
+                                'courses': []
+                            }
+
+                        # Add course details to the appropriate semester
+                        student_details['semesters'][sem_no]['courses'].append({
+                            'course_name': course_name,
+                            'score': score
                         })
 
-                    return jsonify({'student_details': student_details})
+                    response = {
+                        'student_details': {
+                            'student_name': student_details['student_name'],
+                            'semesters': list(student_details['semesters'].values())
+                        }
+                    }
+
+                    return jsonify(response)
                 else:
                     return jsonify({'message': 'No data found'})
 
     except Exception as e:
         # Handle exceptions and return an error response
         return jsonify({'error': str(e)}), 500
-
 
 def stud_average_score():
     try:
