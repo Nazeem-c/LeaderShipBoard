@@ -8,6 +8,22 @@ from services.public import *
 public_router=Blueprint("public",__name__,url_prefix="/api/v1")
 
 
+#1
+@public_router.route('/leaderboard', methods=['GET']) #full filter
+def leaderboard_student():
+    return leaderboard()
+
+#2
+@public_router.route('/collegeleaderboard', methods=['GET']) #full filter
+def leaderboardcollege():
+    return college_leaderboard()
+
+#3
+@public_router.route('/departmentleaderboard', methods=['GET']) #full filter
+def leaderboard_dept():
+    return department_leaderboard()
+
+
 @public_router.route('/leaderboardColleges', methods=['GET']) #common
 def gettopper():
     return get_topper()
@@ -33,9 +49,9 @@ def gettoppercollege():
 def gettopperfullfilter():
     return get_topper_college_dept_batch()
 
-@public_router.route('/leaderboard', methods=['GET']) #full filter
-def gettoppersemfilter():
-    return leaderboard()
+# @public_router.route('/leaderboard', methods=['GET']) #full filter
+# def gettoppersemfilter():
+#     return leaderboard()
 
 @public_router.route('/students', methods=['GET'])
 def studentscore():

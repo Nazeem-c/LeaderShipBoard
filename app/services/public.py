@@ -3,9 +3,216 @@ from psycopg2.extras import RealDictCursor
 from datetime import timedelta
 from config import db_params
 import psycopg2
+from utils.response import generate_response
+
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'leadershipboard'
+
+
+#1
+def leaderboard():
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                clg_name = request.args.get('clg_name')
+                dep_name = request.args.get('dep_name')
+                batch = request.args.get('batch')
+                sem_no = request.args.get('sem_no')
+
+                # Construct the base SQL query
+                base_query = '''
+                    SELECT
+                        s.stud_id,
+                        s.stud_name,
+                        COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) AS total_marks,
+                        DENSE_RANK() OVER (ORDER BY COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) DESC) AS ranking
+                    FROM
+                        student s
+                        JOIN score sc ON s.stud_id = sc.stud_id
+                        JOIN department d ON s.dep_id = d.dep_id
+                        JOIN college c ON s.clg_id = c.clg_id
+                        JOIN semester sm ON d.dep_id = sm.dep_id
+                '''
+
+                params = [sem_no, sem_no, sem_no, sem_no]
+
+                # Check and append college condition
+                if clg_name:
+                    base_query += ' WHERE c.clg_name = %s'
+                    params.append(clg_name)
+
+                # Check and append department condition
+                if dep_name:
+                    if clg_name:
+                        base_query += ' AND'
+                    else:
+                        base_query += ' WHERE'
+                    base_query += ' d.dep_name = %s'
+                    params.append(dep_name)
+
+                # Check and append batch condition
+                if batch:
+                    if clg_name or dep_name:
+                        base_query += ' AND'
+                    else:
+                        base_query += ' WHERE'
+                    base_query += ' s.batch = %s'
+                    params.append(batch)
+
+                base_query += '''
+                    GROUP BY
+                        s.stud_id, s.stud_name
+                    ORDER BY
+                        total_marks DESC;
+                '''
+
+                cur.execute(base_query, tuple(params))
+                dept_LeadershipBoard = cur.fetchall()
+
+                if not dept_LeadershipBoard:
+                    return generate_response({'error': 'No data found for the given parameters'},404)
+
+                formatted_output = {
+                    'leaderboard': [
+                        {
+                            'stud_id': row[0],
+                            'stud_name': row[1],
+                            'total_marks': row[2],
+                            'ranking': row[3]
+                        }
+                        for row in dept_LeadershipBoard
+                    ]
+                }
+
+                return generate_response(formatted_output)
+
+    except psycopg2.Error as e:
+        return generate_response({'error': f'Database error: {str(e)}'},500)
+    except Exception as e:
+        return generate_response({'error': str(e)},400)
+
+#2
+def college_leaderboard():
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                dep_name = request.args.get('dep_name')
+                batch = request.args.get('batch')
+
+                # Construct the base SQL query
+                base_query = '''
+                    SELECT
+                        c.clg_name,
+                        AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN sc.score ELSE 0 END) AS average_score,
+                        AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 AS pass_percentage
+                    FROM
+                        college c
+                        JOIN student s ON c.clg_id = s.clg_id
+                        JOIN department d ON s.dep_id = d.dep_id
+                        LEFT JOIN score sc ON s.stud_id = sc.stud_id
+                '''
+
+                params = [dep_name, dep_name]
+
+                # Check and append batch condition
+                if batch:
+                    base_query += ' WHERE s.batch = %s'
+                    params.append(batch)
+
+                base_query += '''
+                    GROUP BY
+                        c.clg_name
+                    ORDER BY
+                        pass_percentage DESC;
+                '''
+
+                cur.execute(base_query, tuple(params))
+                college_LeadershipBoard = cur.fetchall()
+
+                if not college_LeadershipBoard:
+                    return generate_response({'error': 'No data found for the given parameters'},404)
+
+                formatted_output = {
+                    'leaderboard': [
+                        {
+                            'clg_name': row[0],
+                            'average_score': row[1],
+                            'pass_percentage': row[2]
+                        }
+                        for row in college_LeadershipBoard
+                    ]
+                }
+
+                return generate_response(formatted_output)
+
+    except psycopg2.Error as e:
+        return generate_response({'error': f'Database error: {str(e)}'},500)
+    except Exception as e:
+        return generate_response({'error': str(e)},400)
+
+#3
+
+def department_leaderboard():
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                clg_name = request.args.get('clg_name')
+                batch = request.args.get('batch')
+
+                # Construct the base SQL query
+                base_query = '''
+                    SELECT
+                        d.dep_name,
+                        AVG(CASE WHEN %s IS NULL OR s.clg_id = c.clg_id THEN sc.score ELSE 0 END) AS average_score,
+                        AVG(CASE WHEN %s IS NULL OR s.clg_id = c.clg_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 AS pass_percentage
+                    FROM
+                        department d
+                        JOIN student s ON d.dep_id = s.dep_id
+                        LEFT JOIN score sc ON s.stud_id = sc.stud_id
+                        LEFT JOIN college c ON s.clg_id = c.clg_id
+                '''
+
+                params = [clg_name, clg_name]
+
+                # Check and append batch condition
+                if batch:
+                    base_query += ' WHERE s.batch = %s'
+                    params.append(batch)
+
+                base_query += '''
+                    GROUP BY
+                        d.dep_name
+                    ORDER BY
+                        pass_percentage DESC;
+                '''
+
+                cur.execute(base_query, tuple(params))
+                dept_LeadershipBoard = cur.fetchall()
+
+                if not dept_LeadershipBoard:
+                    return generate_response({'error': 'No data found for the given parameters'},404)
+
+                formatted_output = {
+                    'leaderboard': [
+                        {
+                            'dep_name': row[0],
+                            'average_score': row[1],
+                            'pass_percentage': row[2]
+                        }
+                        for row in dept_LeadershipBoard
+                    ]
+                }
+
+                return generate_response(formatted_output)
+
+    except psycopg2.Error as e:
+        return generate_response({'error': f'Database error: {str(e)}'},500)
+    except Exception as e:
+        return generate_response({'error': str(e)},400)
+
+
 
 
 def get_topper():
@@ -269,86 +476,86 @@ def get_topper_college_dept_batch():
         return jsonify({'error': str(e)}), 500
 
 
-def leaderboard():
-    try:
-        with psycopg2.connect(**db_params) as conn:
-            with conn.cursor() as cur:
-                clg_name = request.args.get('clg_name')
-                dep_name = request.args.get('dep_name')
-                batch = request.args.get('batch')
-                sem_no = request.args.get('sem_no')
+# def leaderboard():
+#     try:
+#         with psycopg2.connect(**db_params) as conn:
+#             with conn.cursor() as cur:
+#                 clg_name = request.args.get('clg_name')
+#                 dep_name = request.args.get('dep_name')
+#                 batch = request.args.get('batch')
+#                 sem_no = request.args.get('sem_no')
 
-                # Construct the base SQL query
-                base_query = '''
-                    SELECT
-                        s.stud_id,
-                        s.stud_name,
-                        COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) AS total_marks,
-                        DENSE_RANK() OVER (ORDER BY COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) DESC) AS ranking
-                    FROM
-                        student s
-                        JOIN score sc ON s.stud_id = sc.stud_id
-                        JOIN department d ON s.dep_id = d.dep_id
-                        JOIN college c ON s.clg_id = c.clg_id
-                        JOIN semester sm ON d.dep_id = sm.dep_id
-                '''
+#                 # Construct the base SQL query
+#                 base_query = '''
+#                     SELECT
+#                         s.stud_id,
+#                         s.stud_name,
+#                         COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) AS total_marks,
+#                         DENSE_RANK() OVER (ORDER BY COALESCE(SUM(CASE WHEN %s IS NULL OR sm.sem_no <= %s THEN sc.score ELSE 0 END), 0) DESC) AS ranking
+#                     FROM
+#                         student s
+#                         JOIN score sc ON s.stud_id = sc.stud_id
+#                         JOIN department d ON s.dep_id = d.dep_id
+#                         JOIN college c ON s.clg_id = c.clg_id
+#                         JOIN semester sm ON d.dep_id = sm.dep_id
+#                 '''
 
-                params = [sem_no, sem_no, sem_no, sem_no]
+#                 params = [sem_no, sem_no, sem_no, sem_no]
 
-                # Check and append college condition
-                if clg_name:
-                    base_query += ' WHERE c.clg_name = %s'
-                    params.append(clg_name)
+#                 # Check and append college condition
+#                 if clg_name:
+#                     base_query += ' WHERE c.clg_name = %s'
+#                     params.append(clg_name)
 
-                # Check and append department condition
-                if dep_name:
-                    if clg_name:
-                        base_query += ' AND'
-                    else:
-                        base_query += ' WHERE'
-                    base_query += ' d.dep_name = %s'
-                    params.append(dep_name)
+#                 # Check and append department condition
+#                 if dep_name:
+#                     if clg_name:
+#                         base_query += ' AND'
+#                     else:
+#                         base_query += ' WHERE'
+#                     base_query += ' d.dep_name = %s'
+#                     params.append(dep_name)
 
-                # Check and append batch condition
-                if batch:
-                    if clg_name or dep_name:
-                        base_query += ' AND'
-                    else:
-                        base_query += ' WHERE'
-                    base_query += ' s.batch = %s'
-                    params.append(batch)
+#                 # Check and append batch condition
+#                 if batch:
+#                     if clg_name or dep_name:
+#                         base_query += ' AND'
+#                     else:
+#                         base_query += ' WHERE'
+#                     base_query += ' s.batch = %s'
+#                     params.append(batch)
 
-                base_query += '''
-                    GROUP BY
-                        s.stud_id, s.stud_name
-                    ORDER BY
-                        total_marks DESC;
-                '''
+#                 base_query += '''
+#                     GROUP BY
+#                         s.stud_id, s.stud_name
+#                     ORDER BY
+#                         total_marks DESC;
+#                 '''
 
-                cur.execute(base_query, tuple(params))
-                dept_LeadershipBoard = cur.fetchall()
+#                 cur.execute(base_query, tuple(params))
+#                 dept_LeadershipBoard = cur.fetchall()
 
-                if not dept_LeadershipBoard:
-                    return jsonify({'error': 'No data found for the given parameters'}), 404
+#                 if not dept_LeadershipBoard:
+#                     return jsonify({'error': 'No data found for the given parameters'}), 404
 
-                formatted_output = {
-                    'leaderboard': [
-                        {
-                            'stud_id': row[0],
-                            'stud_name': row[1],
-                            'total_marks': row[2],
-                            'ranking': row[3]
-                        }
-                        for row in dept_LeadershipBoard
-                    ]
-                }
+#                 formatted_output = {
+#                     'leaderboard': [
+#                         {
+#                             'stud_id': row[0],
+#                             'stud_name': row[1],
+#                             'total_marks': row[2],
+#                             'ranking': row[3]
+#                         }
+#                         for row in dept_LeadershipBoard
+#                     ]
+#                 }
 
-                return jsonify(formatted_output)
+#                 return jsonify(formatted_output)
 
-    except psycopg2.Error as e:
-        return jsonify({'error': f'Database error: {str(e)}'}), 500
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+#     except psycopg2.Error as e:
+#         return jsonify({'error': f'Database error: {str(e)}'}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 400
 
 def get_all_students():
     try:
