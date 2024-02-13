@@ -11,7 +11,7 @@ from utils.response import generate_response
 def student():
     if 'login_id' in session and 'roll' in session and session['roll'] == 'student':
         # User is authenticated as student
-        return jsonify({'message': 'Welcome to the student portal, ' + session['username']})
+        return generate_response({'message': 'Welcome to the student portal, ' + session['username']})
     else:
         return redirect(url_for('login'))
 def get_student_details():

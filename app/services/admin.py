@@ -5,7 +5,7 @@ from config import db_params
 import psycopg2
 from utils.usnamepaswrdgnrtn import *
 from utils.mailscore import *
-
+from utils.response import generate_response
 
 
 
@@ -18,9 +18,9 @@ app.config['SECRET_KEY'] = 'leadershipboard'
 def admin():
     if 'login_id' in session and 'roll' in session and session['roll'] == 'admin':
         # User is authenticated as admin
-        return jsonify({'message': 'Welcome to the admin portal, ' + session['username']})
+        return generate_response({'message': 'Welcome to the admin portal, ' + session['username']})
     else:
-        return redirect(url_for('login'))
+        return generate_response(url_for('login'))
 
 def get_college():
     query = """
