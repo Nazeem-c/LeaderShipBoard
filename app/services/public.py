@@ -215,6 +215,8 @@ def department_leaderboard():
 
 
 
+
+
 def get_topper():
     try:
         with psycopg2.connect(**db_params) as conn:
