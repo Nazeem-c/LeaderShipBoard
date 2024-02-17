@@ -218,39 +218,24 @@ def department_leaderboard():
         return generate_response({'error': str(e)},400)
 
 
-
 def collegelistselect():
     query = """
         SELECT c.clg_name
         FROM college c
-        
     """
 
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
-                if 'login_id' not in session or 'roll' not in session or session['roll'] != 'admin':
-                    return jsonify({'message': 'Unauthorized'}), 401
                 cur.execute(query)
                 results = cur.fetchall()
 
-                colleges = []
+                colleges = [result[0] for result in results]  # Extract college names
 
-                for result in results:
-                    clg_name = result
-
-                    college_info = {
-                        'clg_name': clg_name,
-
-                    }
-
-                    colleges.append(college_info)
-
-        return jsonify({'colleges': colleges})
+        return generate_response({'colleges': colleges})
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
+        return generate_response({'error': str(e)}, 500)
 
 
 

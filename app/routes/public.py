@@ -24,7 +24,7 @@ def leaderboard_dept():
     return department_leaderboard()
 
 #4
-@public_router.route('/collegelist1', methods=['GET']) #full filter
+@public_router.route('/collegelistselect', methods=['GET']) #full filter
 def get_collegelist():
     return collegelistselect()
 
