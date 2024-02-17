@@ -20,6 +20,7 @@ def leaderboard():
                 dep_name = request.args.get('dep_name')
                 batch = request.args.get('batch')
                 sem_no = request.args.get('sem_no')
+                
 
                 # Construct the base SQL query
                 base_query = '''
@@ -94,6 +95,7 @@ def leaderboard():
         return generate_response({'error': str(e)},400)
 
 #2
+
 def college_leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -104,8 +106,9 @@ def college_leaderboard():
                 # Construct the base SQL query
                 base_query = '''
                     SELECT
+                        c.clg_id,
                         c.clg_name,
-                        AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN sc.score ELSE 0 END) AS average_score,
+                        RANK() OVER (ORDER BY AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 DESC) AS ranking,
                         AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 AS pass_percentage
                     FROM
                         college c
@@ -123,7 +126,7 @@ def college_leaderboard():
 
                 base_query += '''
                     GROUP BY
-                        c.clg_name
+                        c.clg_id, c.clg_name
                     ORDER BY
                         pass_percentage DESC;
                 '''
@@ -132,14 +135,15 @@ def college_leaderboard():
                 college_LeadershipBoard = cur.fetchall()
 
                 if not college_LeadershipBoard:
-                    return generate_response({'error': 'No data found for the given parameters'},404)
+                    return generate_response({'error': 'No data found for the given parameters'}, 404)
 
                 formatted_output = {
                     'leaderboard': [
                         {
-                            'clg_name': row[0],
-                            'average_score': row[1],
-                            'pass_percentage': row[2]
+                            'clg_id': row[0],
+                            'clg_name': row[1],
+                            'ranking': row[2],
+                            'pass_percentage': row[3]
                         }
                         for row in college_LeadershipBoard
                     ]
@@ -148,9 +152,10 @@ def college_leaderboard():
                 return generate_response(formatted_output)
 
     except psycopg2.Error as e:
-        return generate_response({'error': f'Database error: {str(e)}'},500)
+        return generate_response({'error': f'Database error: {str(e)}'}, 500)
     except Exception as e:
-        return generate_response({'error': str(e)},400)
+        return generate_response({'error': str(e)}, 400)
+
 
 #3
 
@@ -213,6 +218,38 @@ def department_leaderboard():
         return generate_response({'error': str(e)},400)
 
 
+
+def collegelistselect():
+    query = """
+        SELECT c.clg_name
+        FROM college c
+        
+    """
+
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                if 'login_id' not in session or 'roll' not in session or session['roll'] != 'admin':
+                    return jsonify({'message': 'Unauthorized'}), 401
+                cur.execute(query)
+                results = cur.fetchall()
+
+                colleges = []
+
+                for result in results:
+                    clg_name = result
+
+                    college_info = {
+                        'clg_name': clg_name,
+
+                    }
+
+                    colleges.append(college_info)
+
+        return jsonify({'colleges': colleges})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 
