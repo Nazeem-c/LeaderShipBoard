@@ -8,25 +8,36 @@ from services.public import *
 public_router=Blueprint("public",__name__,url_prefix="/api/v1")
 
 
-#1
+#1 student
 @public_router.route('/leaderboard', methods=['GET']) #full filter
 def leaderboard_student():
     return leaderboard()
 
-#2
+#2 college
 @public_router.route('/collegeleaderboard', methods=['GET']) #full filter
 def leaderboardcollege():
     return college_leaderboard()
 
-#3
+#3 department
 @public_router.route('/departmentleaderboard', methods=['GET']) #full filter
 def leaderboard_dept():
     return department_leaderboard()
 
-#4
+#4 for getting college list in select boxin froont end
 @public_router.route('/collegelistselect', methods=['GET']) #full filter
 def get_collegelist():
     return collegelistselect()
+
+#% for getting department list in select boxin froont end
+@public_router.route('/departmentslistselect', methods=['GET'])
+def getdepartmentlists():
+    return departmentlist()
+
+#% for getting btaches list in select boxin froont end
+@public_router.route('/btacheslistselect', methods=['GET'])
+def getbtacheslists():
+    return batcheslist()
+
 
 
 @public_router.route('/leaderboardColleges', methods=['GET']) #common

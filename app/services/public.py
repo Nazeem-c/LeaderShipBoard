@@ -217,6 +217,7 @@ def department_leaderboard():
     except Exception as e:
         return generate_response({'error': str(e)},400)
 
+#4 for frontend selectio-----college-list
 
 def collegelistselect():
     query = """
@@ -237,6 +238,49 @@ def collegelistselect():
     except Exception as e:
         return generate_response({'error': str(e)}, 500)
 
+
+
+#5 for frontend selectio-----departent-list
+def departmentlist():
+    query = """
+        SELECT d.dep_name
+        FROM department d
+    """
+
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                results = cur.fetchall()
+
+                departments = [result[0] for result in results]  # Extract department names
+
+        return generate_response({'departments': departments})
+
+    except Exception as e:
+        return generate_response({'error': str(e)}, 500)
+
+#6 for frontend selectio-----batches-list
+
+def batcheslist():
+    query = """
+        SELECT b.batch
+        FROM batches b
+    """
+
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                results = cur.fetchall()
+
+                batches = [result[0] for result in results]  # Extract department names
+
+        return generate_response({'batches': batches})
+
+    except Exception as e:
+        return generate_response({'error': str(e)}, 500)
+#------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 def get_topper():
