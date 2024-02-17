@@ -5,12 +5,13 @@ from datetime import timedelta
 from config import db_params
 import psycopg2
 from flask import Flask, request, jsonify
+from utils.response import generate_response
 
 
 def student():
     if 'login_id' in session and 'roll' in session and session['roll'] == 'student':
         # User is authenticated as student
-        return jsonify({'message': 'Welcome to the student portal, ' + session['username']})
+        return generate_response({'message': 'Welcome to the student portal, ' + session['username']})
     else:
         return redirect(url_for('login'))
 def get_student_details():
@@ -76,20 +77,20 @@ def get_student_details():
                         }
                     }
 
-                    return jsonify(response)
+                    return  generate_response(response)
                 else:
-                    return jsonify({'message': 'No data found'})
+                    return generate_response({'message': 'No data found'},404)
 
     except Exception as e:
         # Handle exceptions and return an error response
-        return jsonify({'error': str(e)}), 500
+        return generate_response({'error': str(e)}, 500)
 
 def stud_average_score():
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
                 if 'login_id' not in session or 'roll' not in session or session['roll'] != 'student':
-                    return jsonify({'message': 'Unauthorized'}), 401
+                    return generate_response({'message': 'Unauthorized'},401)
 
                 # Get stud_id from the query parameters
                 stud_id = request.args.get('stud_id')
@@ -114,9 +115,9 @@ def stud_average_score():
                         'stud_name': results[0][1],
                         'average_score': results[0][2]
                     }
-                    return jsonify({'student': student_data})
+                    return generate_response({'student': student_data})
                 else:
-                    return jsonify({'message': f'No data found for student with stud_id {stud_id}'}), 404
+                    return generate_response({'message': f'No data found for student with stud_id {stud_id}'}, 404)
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -150,12 +151,12 @@ def get_current_semester():
                         'stud_id': stud_id,
                         'current_semester': results[0][0] if len(results[0]) > 0 else None
                     }
-                    return jsonify({'student': student_data})
+                    return generate_response({'student': student_data})
                 else:
-                    return jsonify({'message': f'No data found for student with stud_id {stud_id}'}), 404
+                    return generate_response({'message': f'No data found for student with stud_id {stud_id}'}, 404)
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return generate_response({'error': str(e)}, 500)
 
 
  

@@ -20,6 +20,7 @@ def leaderboard():
                 dep_name = request.args.get('dep_name')
                 batch = request.args.get('batch')
                 sem_no = request.args.get('sem_no')
+                
 
                 # Construct the base SQL query
                 base_query = '''
@@ -94,6 +95,7 @@ def leaderboard():
         return generate_response({'error': str(e)},400)
 
 #2
+
 def college_leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
@@ -104,8 +106,9 @@ def college_leaderboard():
                 # Construct the base SQL query
                 base_query = '''
                     SELECT
+                        c.clg_id,
                         c.clg_name,
-                        AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN sc.score ELSE 0 END) AS average_score,
+                        RANK() OVER (ORDER BY AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 DESC) AS ranking,
                         AVG(CASE WHEN %s IS NULL OR s.dep_id = d.dep_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 AS pass_percentage
                     FROM
                         college c
@@ -123,7 +126,7 @@ def college_leaderboard():
 
                 base_query += '''
                     GROUP BY
-                        c.clg_name
+                        c.clg_id, c.clg_name
                     ORDER BY
                         pass_percentage DESC;
                 '''
@@ -132,14 +135,15 @@ def college_leaderboard():
                 college_LeadershipBoard = cur.fetchall()
 
                 if not college_LeadershipBoard:
-                    return generate_response({'error': 'No data found for the given parameters'},404)
+                    return generate_response({'error': 'No data found for the given parameters'}, 404)
 
                 formatted_output = {
                     'leaderboard': [
                         {
-                            'clg_name': row[0],
-                            'average_score': row[1],
-                            'pass_percentage': row[2]
+                            'clg_id': row[0],
+                            'clg_name': row[1],
+                            'ranking': row[2],
+                            'pass_percentage': row[3]
                         }
                         for row in college_LeadershipBoard
                     ]
@@ -148,9 +152,10 @@ def college_leaderboard():
                 return generate_response(formatted_output)
 
     except psycopg2.Error as e:
-        return generate_response({'error': f'Database error: {str(e)}'},500)
+        return generate_response({'error': f'Database error: {str(e)}'}, 500)
     except Exception as e:
-        return generate_response({'error': str(e)},400)
+        return generate_response({'error': str(e)}, 400)
+
 
 #3
 
@@ -212,7 +217,70 @@ def department_leaderboard():
     except Exception as e:
         return generate_response({'error': str(e)},400)
 
+#4 for frontend selectio-----college-list
 
+def collegelistselect():
+    query = """
+        SELECT c.clg_name
+        FROM college c
+    """
+
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                results = cur.fetchall()
+
+                colleges = [result[0] for result in results]  # Extract college names
+
+        return generate_response({'colleges': colleges})
+
+    except Exception as e:
+        return generate_response({'error': str(e)}, 500)
+
+
+
+#5 for frontend selectio-----departent-list
+def departmentlist():
+    query = """
+        SELECT d.dep_name
+        FROM department d
+    """
+
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                results = cur.fetchall()
+
+                departments = [result[0] for result in results]  # Extract department names
+
+        return generate_response({'departments': departments})
+
+    except Exception as e:
+        return generate_response({'error': str(e)}, 500)
+
+#6 for frontend selectio-----batches-list
+
+def batcheslist():
+    query = """
+        SELECT b.batch
+        FROM batches b
+    """
+
+    try:
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                cur.execute(query)
+                results = cur.fetchall()
+
+                batches = [result[0] for result in results]  # Extract department names
+
+        return generate_response({'batches': batches})
+
+    except Exception as e:
+        return generate_response({'error': str(e)}, 500)
+#------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 def get_topper():
@@ -830,48 +898,48 @@ def fetch_courses_for_student(stud_id, sem_no):
         return [{'error': str(e)}]
 
 
-def list_colleges():
-    try:
-        with psycopg2.connect(**db_params) as conn:
-            with conn.cursor() as cur:
-                # Construct the SQL query to calculate average score and pass percentage for each college
-                sql_query = '''
-                    SELECT
-                        c.clg_id,
-                        c.clg_name,
-                        AVG(sc.score) AS average_score,
-                        AVG(CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END) * 100 AS pass_percentage
-                    FROM
-                        college c
-                        LEFT JOIN student s ON c.clg_id = s.clg_id
-                        LEFT JOIN score sc ON s.stud_id = sc.stud_id
-                    GROUP BY
-                        c.clg_id, c.clg_name
-                '''
+# def list_colleges():
+#     try:
+#         with psycopg2.connect(**db_params) as conn:
+#             with conn.cursor() as cur:
+#                 # Construct the SQL query to calculate average score and pass percentage for each college
+#                 sql_query = '''
+#                     SELECT
+#                         c.clg_id,
+#                         c.clg_name,
+#                         AVG(sc.score) AS average_score,
+#                         AVG(CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END) * 100 AS pass_percentage
+#                     FROM
+#                         college c
+#                         LEFT JOIN student s ON c.clg_id = s.clg_id
+#                         LEFT JOIN score sc ON s.stud_id = sc.stud_id
+#                     GROUP BY
+#                         c.clg_id, c.clg_name
+#                 '''
 
-                cur.execute(sql_query)
-                college_data = cur.fetchall()
+#                 cur.execute(sql_query)
+#                 college_data = cur.fetchall()
 
-                # Calculate college rank based on a combination of average score and pass percentage
-                ranked_colleges = []
-                for idx, college in enumerate(sorted(college_data, key=lambda x: (x[2] or Decimal(0), x[3] or Decimal(0)), reverse=True), start=1):
-                    clg_id, clg_name, average_score, pass_percentage = college
-                    rank = idx
+#                 # Calculate college rank based on a combination of average score and pass percentage
+#                 ranked_colleges = []
+#                 for idx, college in enumerate(sorted(college_data, key=lambda x: (x[2] or Decimal(0), x[3] or Decimal(0)), reverse=True), start=1):
+#                     clg_id, clg_name, average_score, pass_percentage = college
+#                     rank = idx
 
-                    ranked_colleges.append({
-                        'rank': rank,
-                        'college_details': {
-                            'clg_id': clg_id,
-                            'clg_name': clg_name,
-                            'average_score': average_score,
-                            'pass_percentage': min(pass_percentage or Decimal(0), 100)  # Ensure pass percentage is within 100
-                        }
-                    })
+#                     ranked_colleges.append({
+#                         'rank': rank,
+#                         'college_details': {
+#                             'clg_id': clg_id,
+#                             'clg_name': clg_name,
+#                             'average_score': average_score,
+#                             'pass_percentage': min(pass_percentage or Decimal(0), 100)  # Ensure pass percentage is within 100
+#                         }
+#                     })
 
-        return jsonify({'ranked_colleges': ranked_colleges})
+#         return jsonify({'ranked_colleges': ranked_colleges})
 
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
 
 def get_college_info():

@@ -3,6 +3,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import timedelta
 from config import db_params
 import psycopg2
+from utils.response import generate_response
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'leadershipboard'
@@ -32,12 +33,12 @@ def login():
             elif user[2] == 'student':
                 return redirect(url_for('students.studentpage'))
             else:
-                return jsonify({'error': 'Invalid role'}), 401
+                return generate_response({'error': 'Invalid role'}, 401)
         else:
-            return jsonify({'error': 'Invalid credentials'}), 401
+             generate_response({'error': 'Invalid credentials'}, 401)
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return generate_response({'error': str(e)}, 500)
 
 
 def logout():
@@ -45,5 +46,5 @@ def logout():
     session.pop('username', None)
     session.pop('roll', None)
 
-    return jsonify({'message': 'Logout successful'})
+    return generate_response({'message': 'Logout successful'})
 #dfghjkl;'ghj
