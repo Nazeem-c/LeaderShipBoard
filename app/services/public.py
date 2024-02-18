@@ -16,10 +16,15 @@ def leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
-                clg_name = request.args.get('clg_name')
-                dep_name = request.args.get('dep_name')
+                enc_clg_name = request.args.get('clg_name')
+                enc_dep_name = request.args.get('dep_name')
                 batch = request.args.get('batch')
                 sem_no = request.args.get('sem_no')
+
+
+                clg_name= enc_clg_name.replace("%20", " ")
+                dep_name= enc_dep_name.replace("%20", " ")
+   
                 
 
                 # Construct the base SQL query
@@ -73,7 +78,7 @@ def leaderboard():
                 dept_LeadershipBoard = cur.fetchall()
 
                 if not dept_LeadershipBoard:
-                    return generate_response({'error': 'No data found for the given parameters'},404)
+                    return generate_response({'error': 'No data found for the given filtering!'},404)
 
                 formatted_output = {
                     'leaderboard': [
