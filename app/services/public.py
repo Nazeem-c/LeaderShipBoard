@@ -22,9 +22,11 @@ def leaderboard():
                 sem_no = request.args.get('sem_no')
 
 
-                clg_name= enc_clg_name.replace("%20", " ")
-                dep_name= enc_dep_name.replace("%20", " ")
-   
+                de_clg_name= enc_clg_name.replace("%20", " ")
+                de_dep_name= enc_dep_name.replace("%20", " ")
+
+                clg_name = de_clg_name.replace("null", "").strip()
+                dep_name = de_dep_name.replace("null", "").strip()
                 
 
                 # Construct the base SQL query
