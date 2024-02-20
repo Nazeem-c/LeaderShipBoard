@@ -107,7 +107,9 @@ def college_leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
-                dep_name = request.args.get('dep_name')
+                enc_dep_name = request.args.get('dep_name')
+                de_dep_name= enc_dep_name.replace("%20", " ")
+                dep_name = de_dep_name.replace("null", "").strip()
                 batch = request.args.get('batch')
 
                 # Construct the base SQL query
@@ -165,18 +167,24 @@ def college_leaderboard():
 
 
 #3
-
 def department_leaderboard():
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
-                clg_name = request.args.get('clg_name')
+
+
                 batch = request.args.get('batch')
+                enc_clg_name = request.args.get('clg_name')
+                de_clg_name= enc_clg_name.replace("%20", " ")
+                clg_name = de_clg_name.replace("null", "").strip()
+                
 
                 # Construct the base SQL query
                 base_query = '''
                     SELECT
+                        d.dep_id,
                         d.dep_name,
+                        RANK() OVER (ORDER BY AVG(CASE WHEN %s IS NULL OR s.clg_id = c.clg_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 DESC) AS rank,
                         AVG(CASE WHEN %s IS NULL OR s.clg_id = c.clg_id THEN sc.score ELSE 0 END) AS average_score,
                         AVG(CASE WHEN %s IS NULL OR s.clg_id = c.clg_id THEN CASE WHEN sc.score >= 40 THEN 1 ELSE 0 END ELSE 0 END) * 100 AS pass_percentage
                     FROM
@@ -186,7 +194,7 @@ def department_leaderboard():
                         LEFT JOIN college c ON s.clg_id = c.clg_id
                 '''
 
-                params = [clg_name, clg_name]
+                params = [clg_name, clg_name, clg_name]
 
                 # Check and append batch condition
                 if batch:
@@ -195,7 +203,7 @@ def department_leaderboard():
 
                 base_query += '''
                     GROUP BY
-                        d.dep_name
+                        d.dep_id, d.dep_name
                     ORDER BY
                         pass_percentage DESC;
                 '''
@@ -204,14 +212,16 @@ def department_leaderboard():
                 dept_LeadershipBoard = cur.fetchall()
 
                 if not dept_LeadershipBoard:
-                    return generate_response({'error': 'No data found for the given parameters'},404)
+                    return generate_response({'error': 'No data found for the given parameters'}, 404)
 
                 formatted_output = {
                     'leaderboard': [
                         {
-                            'dep_name': row[0],
-                            'average_score': row[1],
-                            'pass_percentage': row[2]
+                            'dep_id': row[0],
+                            'dep_name': row[1],
+                            'rank': row[2],
+                            'average_score': row[3],
+                            'pass_percentage': row[4]
                         }
                         for row in dept_LeadershipBoard
                     ]
@@ -220,9 +230,10 @@ def department_leaderboard():
                 return generate_response(formatted_output)
 
     except psycopg2.Error as e:
-        return generate_response({'error': f'Database error: {str(e)}'},500)
+        return generate_response({'error': f'Database error: {str(e)}'}, 500)
     except Exception as e:
-        return generate_response({'error': str(e)},400)
+        return generate_response({'error': str(e)}, 400)
+
 
 #4 for frontend selectio-----college-list
 
