@@ -60,14 +60,14 @@ def login():
             session['roll'] = user[2]
 
             if user[2] == 'admin':
-                return jsonify({
+                return generate_response({
                     'user_id': user[0],
                     'username': user[1],
                     'roll': user[2],
                     'redirect_url': url_for('admin.adminpage')
                 })
             elif user[2] == 'student':
-                return jsonify({
+                return generate_response({
                     'user_id': user[0],
                     'username': user[1],
                     'roll': user[2],

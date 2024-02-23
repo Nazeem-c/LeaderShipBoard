@@ -14,72 +14,110 @@ def student():
         return generate_response({'message': 'Welcome to the student portal, ' + session['username']})
     else:
         return redirect(url_for('login'))
+from flask import request, session
+
+# ... (other imports)
 def get_student_details():
     try:
-        with psycopg2.connect(**db_params) as conn:
-            with conn.cursor() as cur:
-                # Retrieve stud_id from the request parameters
-                stud_id = request.args.get('stud_id')
+        # Check if the user is logged in as a student
+        if 'username' in session and 'roll' in session and session['roll'] == 'student':
+            # Retrieve the username from the session
+            username = session.get('username')
 
-                # Execute a SQL query to fetch student details with course scores and semester information
-                cur.execute('''
-                    SELECT
-                        student.stud_name,
-                        course.course_name,
-                        semester.sem_no,
-                        score.score
-                    FROM
-                        public.student
-                    JOIN
-                        public.score ON student.stud_id = score.stud_id
-                    JOIN
-                        public.course ON score.course_id = course.course_id
-                    JOIN
-                        public.semester ON course.sem_id = semester.sem_id
-                    WHERE
-                        student.stud_id = %s
-                    ORDER BY
-                        semester.sem_no, course.course_name;
-                ''', (stud_id,))
+            # Check if the user is logged in (username is in the session)
+            if not username:
+                return redirect(url_for('login.loginpage'))
 
-                result = cur.fetchall()
+            with psycopg2.connect(**db_params) as conn:
+                with conn.cursor() as cur:
+                    # Execute a SQL query to fetch login id based on the username
+                    cur.execute('SELECT login_id FROM public.login WHERE username = %s', (username,))
+                    login_id = cur.fetchone()
 
-                # Check if data is found and construct a JSON response
-                if result:
-                    student_name = result[0][0]
-                    student_details = {
-                        'student_name': student_name,
-                        'semesters': {}
-                    }
+                    if login_id:
+                        # Fetch student details using the login id
+                        cur.execute('''
+                            SELECT
+                                student.stud_name,
+                                student.stud_id,
+                                department.dep_name,
+                                college.clg_id,
+                                college.clg_name,
+                                batches.batch_id,
+                                course.course_name,
+                                semester.sem_no,
+                                score.score
+                            FROM
+                                public.student
+                            JOIN
+                                public.score ON student.stud_id = score.stud_id
+                            JOIN
+                                public.course ON score.course_id = course.course_id
+                            JOIN
+                                public.semester ON course.sem_id = semester.sem_id
+                            JOIN
+                                public.batches ON student.batch = batches.batch_id
+                            JOIN
+                                public.college ON student.clg_id = college.clg_id
+                            JOIN
+                                public.department ON student.dep_id = department.dep_id
+                            WHERE
+                                student.login_id = %s
+                            ORDER BY
+                                semester.sem_no, course.course_name;
+                        ''', (login_id[0],))
 
-                    for row in result:
-                        course_name = row[1]
-                        sem_no = row[2]
-                        score = row[3]
+                        result = cur.fetchall()
 
-                        # Create a semester entry if it doesn't exist
-                        if sem_no not in student_details['semesters']:
-                            student_details['semesters'][sem_no] = {
-                                'semester_name': f'Semester {sem_no}',  # Add this line
-                                'courses': []
+                        # Check if data is found and construct a JSON response
+                        if result:
+                            student_name = result[0][0]
+                            student_id = result[0][1]
+                            dep_name = result[0][2]
+                            college_id = result[0][3]
+                            college_name = result[0][4]
+                            batch_name = result[0][5]
+
+                            student_details = {
+                                'student_name': student_name,
+                                'student_id': student_id,
+                                'dep_name': dep_name,
+                                'college_id': college_id,
+                                'college_name': college_name,
+                                'batch_name': batch_name,
+                                'semesters': {}
                             }
 
-                        # Add course details to the appropriate semester
-                        student_details['semesters'][sem_no]['courses'].append({
-                            'course_name': course_name,
-                            'score': score
-                        })
+                            for row in result:
+                                course_name = row[6]
+                                sem_no = row[7]
+                                score = row[8]
 
-                    response = {
-                        'student_details': {
-                            'student_name': student_details['student_name'],
-                            'semesters': list(student_details['semesters'].values())
-                        }
-                    }
+                                # Create a semester entry if it doesn't exist
+                                if sem_no not in student_details['semesters']:
+                                    student_details['semesters'][sem_no] = {
+                                        'semester_name': f'Semester {sem_no}',  # Add this line
+                                        'courses': []
+                                    }
 
-                    return  generate_response(response)
-                else:
-                    return generate_response({'message': 'No data found'},404)
+                                # Add course details to the appropriate semester
+                                student_details['semesters'][sem_no]['courses'].append({
+                                    'course_name': course_name,
+                                    'score': score
+                                })
+
+                            response = {
+                                'student_details': student_details
+                            }
+
+                            return generate_response(response)
+                        else:
+                            return generate_response({'message': 'No data found'}, 404)
+                    else:
+                        return generate_response({'message': 'Login id not found for the username'}, 404)
+
+        else:
+            return redirect(url_for('login'))
 
     except Exception as e:
         # Handle exceptions and return an error response
