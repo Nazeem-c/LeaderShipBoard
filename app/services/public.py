@@ -5,10 +5,11 @@ from config import db_params
 import psycopg2
 from utils.response import generate_response
 
+from config import secret_key
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'leadershipboard'
+app.secret_key = secret_key
 
 
 #1

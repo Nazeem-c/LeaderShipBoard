@@ -1,6 +1,9 @@
 from services.admin import *
 from flask import Blueprint
 
+from config import secret_key
+
+app.secret_key = secret_key
 
 admin_router= Blueprint('admin', __name__,url_prefix='/api/v1')
 

@@ -2,8 +2,9 @@
 # from services.public import get_topper,get_topper_batch,get_topper_dept,get_topper_dept_batch,get_topper_college_dept,get_topper_college_dept_batch,get_all_students,get_students_details,get_leadership_board,get_topper_college_dept_batch_sem
 from flask import Blueprint
 
+from config import secret_key
 from services.public import *
-
+app.secret_key = secret_key
 
 public_router=Blueprint("public",__name__,url_prefix="/api/v1")
 

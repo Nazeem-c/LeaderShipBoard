@@ -8,6 +8,26 @@ from flask import Flask, request, jsonify
 from utils.response import generate_response
 
 
+from config import secret_key
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from flask_session import Session
+
+
+
+
+app = Flask(__name__)
+CORS(app,supports_credentials= True) 
+app.config['SESSION_TYPE'] = 'filesystem' 
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
+
+
+app.secret_key = secret_key
+ # You can choose a different session type based on your needs
+
+
+
 def student():
     if 'login_id' in session and 'roll' in session and session['roll'] == 'student':
         # User is authenticated as student
@@ -15,18 +35,22 @@ def student():
     else:
         return redirect(url_for('login'))
 from flask import request, session
-
 # ... (other imports)
 def get_student_details():
-    try:
-        # Check if the user is logged in as a student
-        if 'username' in session and 'roll' in session and session['roll'] == 'student':
-            # Retrieve the username from the session
-            username = session.get('username')
 
-            # Check if the user is logged in (username is in the session)
+    try:
+        # username = session.get('username')
+        # Check if the user is logged in as a student
+        # if 'username' in session and 'roll' in session and session['roll'] == 'student':
+            # Retrieve the username from the session
+           
+            # username = session['username']
+            username = request.args.get("username")
+        # print("usr----",username)
+
+        # Check if the user is logged in (username is in the session)
             if not username:
-                return redirect(url_for('login.loginpage'))
+                return generate_response({'error': 'User not authenticated'}, 401)
 
             with psycopg2.connect(**db_params) as conn:
                 with conn.cursor() as cur:
@@ -77,7 +101,6 @@ def get_student_details():
                             college_id = result[0][3]
                             college_name = result[0][4]
                             batch_name = result[0][5]
-
                             student_details = {
                                 'student_name': student_name,
                                 'student_id': student_id,
@@ -85,7 +108,9 @@ def get_student_details():
                                 'college_id': college_id,
                                 'college_name': college_name,
                                 'batch_name': batch_name,
-                                'semesters': {}
+                                'semesters': {},
+                                'CGPA' : calculate_average_score(student_id)
+
                             }
 
                             for row in result:
@@ -116,12 +141,11 @@ def get_student_details():
                     else:
                         return generate_response({'message': 'Login id not found for the username'}, 404)
 
-        else:
-            return redirect(url_for('login'))
 
     except Exception as e:
         # Handle exceptions and return an error response
         return generate_response({'error': str(e)}, 500)
+
 
 def stud_average_score():
     try:
@@ -198,3 +222,120 @@ def get_current_semester():
 
 
  
+
+
+ #=--------------------------------------------------------------------------
+def calculate_average_score(stud_id, semester_number=None):
+    with psycopg2.connect(**db_params) as conn:
+        with conn.cursor() as cur:
+            if semester_number:
+                # Calculate average score for the given semester
+                cur.execute('''
+                    SELECT AVG(a.score) AS average_score
+                    FROM score a
+                    JOIN course c ON a.course_id = c.course_id
+                    JOIN semester s ON c.sem_id = s.sem_id
+                    WHERE a.stud_id = %s AND s.sem_no = %s;
+                ''', (stud_id, semester_number))
+            else:
+                # Calculate average score for all courses attended by the student
+                cur.execute('''
+                    SELECT AVG(a.score) AS average_score
+                    FROM score a
+                    WHERE a.stud_id = %s;
+                ''', (stud_id,))
+ 
+            average_score_result = cur.fetchone()
+ 
+            if average_score_result:
+                return average_score_result[0] / 10
+            else:
+                return None
+ 
+ 
+def stud_semester_score():
+    try:
+        # Check if the user is logged in and is identified as a student
+        username = request.args.get("username")
+        # Retrieve the semester number from the request JSON data
+        # data = request.get_json()
+        semester_number = request.args.get('semester_number')
+ 
+        # Connect to the database
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                # Retrieve the student's ID based on the username
+                cur.execute('''
+                    SELECT stud_id
+                    FROM student
+                    JOIN login ON student.login_id = login.login_id
+                    WHERE login.username = %s;
+                ''', (username,))
+                result = cur.fetchone()
+ 
+                if result:
+                    # Extract the student's ID from the result
+                    stud_id = result[0]
+ 
+                    # Execute the SQL query to retrieve the scores for each course in the given semester
+                    cur.execute('''
+                        SELECT c.course_id, c.course_name, a.score
+                        FROM score a
+                        JOIN course c ON a.course_id = c.course_id
+                        JOIN semester s ON c.sem_id = s.sem_id
+                        WHERE a.stud_id = %s AND s.sem_no = %s;
+                    ''', (stud_id, semester_number))
+                    score_results = cur.fetchall()
+ 
+                    if score_results:
+                        # Construct the response containing course name, id, and score
+                        courses_scores = [{
+                            'course_id': row[0],
+                            'course_name': row[1],
+                            'score': row[2]
+                        } for row in score_results]
+ 
+                        # Calculate the average score for the semester
+                        average_score = calculate_average_score(stud_id, semester_number)
+                        return generate_response({
+                            'average_score': average_score,
+                            'courses_scores': courses_scores
+                        })
+                    else:
+                        return generate_response({'message': f'No score data found for student with username {username} in semester {semester_number}'}, 404)
+                else:
+                    return generate_response({'message': f'No student found with username {username}'}, 404)
+ 
+    except Exception as e:
+        return generate_response({'error': str(e)}, 500)
+ 
+ 
+def stud_average_score_all():
+   
+        # Check if the user is logged in and is identified as a student
+        username = request.args.get("username")
+ 
+        # Connect to the database
+        with psycopg2.connect(**db_params) as conn:
+            with conn.cursor() as cur:
+                # Retrieve the student's ID based on the username
+                cur.execute('''
+                    SELECT stud_id
+                    FROM student
+                    JOIN login ON student.login_id = login.login_id
+                    WHERE login.username = %s;
+                ''', (username,))
+                result = cur.fetchone()
+ 
+                if result:
+                    # Extract the student's ID from the result
+                    stud_id = result[0]
+ 
+                    # Calculate the average score for all courses attended by the student
+                    average_score = calculate_average_score(stud_id)
+                    return generate_response({'average_score': average_score})
+ 
+                else:
+                    return generate_response({'message': f'No student found with username {username}'}, 404)
+ 
+   
