@@ -7,11 +7,12 @@ from utils.usnamepaswrdgnrtn import *
 from utils.mailscore import *
 from utils.response import generate_response
 
+from config import secret_key
 
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'leadershipboard'
+app.secret_key = secret_key
 
 
 

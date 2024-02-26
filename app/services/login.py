@@ -5,8 +5,16 @@ from config import db_params
 import psycopg2
 from utils.response import generate_response
 
+from config import secret_key
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from flask_session import Session
+
+
+
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'leadershipboard'
+app.secret_key = secret_key
 
 
 
@@ -55,24 +63,26 @@ def login():
                 user = cur.fetchone()
 
         if user:
-            session['login_id'] = user[0]
-            session['username'] = user[1]
-            session['roll'] = user[2]
+            # session['logged_in'] = True
+            # session['username'] = user[1]
+            # session['roll'] = user[2]
 
+            
             if user[2] == 'admin':
                 return generate_response({
                     'user_id': user[0],
                     'username': user[1],
                     'roll': user[2],
-                    'redirect_url': url_for('admin.adminpage')
+                    # 'redirect_url': url_for('admin.adminpage')
                 })
             elif user[2] == 'student':
                 return generate_response({
                     'user_id': user[0],
                     'username': user[1],
                     'roll': user[2],
-                    'redirect_url': url_for('students.studentpage')
+                    # 'redirect_url': url_for('students.studentpage')
                 })
+               
             else:
                 return generate_response({'error': 'Invalid role'}, 401)
         else:
