@@ -428,7 +428,7 @@ def send_email(recipient_email, subject, body):
 
 
 def mailscore():
-    if request.method == 'POST':
+    if request.method == 'GET':
         try:
             # Get stud_id and sem_no from request parameters
             stud_id = request.args.get('stud_id')
@@ -436,7 +436,7 @@ def mailscore():
 
             # Check if stud_id and sem_no are provided
             if not stud_id or not sem_no:
-                return jsonify({'error': 'Missing parameters: stud_id or sem_no'})
+                return generate_response({'error': 'Missing parameters: stud_id or sem_no'},404)
 
             # Convert sem_no to integer
             sem_no = int(sem_no)
@@ -460,14 +460,14 @@ def mailscore():
                 email_body = generates_email_body(stud_id, sem_no, stud_name, scores)
                 send_email(recipient_email, f'Semester {sem_no} Scores Added', email_body)
 
-                return jsonify({'message': 'Email sent successfully!'})
+                return generate_response({'message': 'Email sent successfully!'})
             else:
                 cursor.close()
                 connection.close()
-                return jsonify({'error': 'Email not found for the provided stud_id'})
+                return generate_response({'error': 'Email not found for the provided stud_id'},404)
 
         except Exception as e:
-            return jsonify({'error': str(e)})
+            return generate_response({'error': str(e)},500)
         
 def generates_email_body(stud_id, sem_no, stud_name, scores):
     # Replace placeholders with actual values
@@ -485,6 +485,7 @@ def generates_email_body(stud_id, sem_no, stud_name, scores):
    <html>
 
 <body style="font-family: 'Poppins', sans-serif; letter-spacing: -0.5px;">
+
     <div style="background-color: #9747FF; padding: 20px; text-align: center; color: #fff;">
         <h1>Stellar University</h1>
         <p>Inspiring Minds, Shaping Futures</p>
@@ -502,9 +503,7 @@ def generates_email_body(stud_id, sem_no, stud_name, scores):
             </tr>
         </thead>
         <tbody>
-            <!-- Replace the below rows with dynamic data -->
             {scores_table}
-            <!-- End of dynamic data -->
         </tbody>
     </table>
     <div style="padding: 20px;">

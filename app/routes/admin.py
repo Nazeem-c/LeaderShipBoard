@@ -62,6 +62,6 @@ def add_score():
 
 
 
-@admin_router.route('/mail-score', methods=['POST'])
+@admin_router.route('/mail-score', methods=['GET'])
 def mail_score():
     return mailscore()
