@@ -248,7 +248,8 @@ def calculate_average_score(stud_id, semester_number=None):
             average_score_result = cur.fetchone()
  
             if average_score_result:
-                return average_score_result[0] / 10
+               return round(average_score_result[0] / 10, 2)
+
             else:
                 return None
  
@@ -259,8 +260,10 @@ def stud_semester_score():
         username = request.args.get("username")
         # Retrieve the semester number from the request JSON data
         # data = request.get_json()
+    
         semester_number = request.args.get('semester_number')
- 
+        if semester_number is None:
+            return generate_response({}, 404)
         # Connect to the database
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:

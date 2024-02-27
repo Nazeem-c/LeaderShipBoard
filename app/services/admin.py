@@ -377,39 +377,145 @@ def addscore():
         conn.close()
 
 
+def get_scores_by_stud_id_and_sem(stud_id, sem_no, cursor):
+    # Get stud_name, course_id, course_name, and score associated with the stud_id and semester from the score table
+    query = """
+    SELECT student.stud_name, score.course_id, course.course_name, score.score
+    FROM score
+    JOIN course ON score.course_id = course.course_id
+    JOIN semester ON course.sem_id = semester.sem_id
+    JOIN student ON score.stud_id = student.stud_id
+    WHERE score.stud_id = %s AND semester.sem_no = %s
+    """
+    cursor.execute(query, (stud_id, sem_no))
+    results = cursor.fetchall()
+    return results
+
+
+def get_email_by_stud_id(stud_id, cursor):
+    # Get the email associated with the stud_id from the student table
+    query = "SELECT mail FROM student WHERE stud_id = %s"
+    cursor.execute(query, (stud_id,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        return None
+
+
+def send_email(recipient_email, subject, body):
+    # SMTP server settings
+    smtp_server = 'smtp-relay.brevo.com'  # Replace with your SMTP server
+    smtp_port = 587  # Change to the appropriate port
+    smtp_username = 'leadershipteam28@gmail.com'
+    smtp_password = 'Ssvfa2nQdmPUDGZ0'
+    smtp_sender_email = 'leadershipteam28@gmail.com'
+
+    # Create a multipart message
+    message = MIMEMultipart()
+    message['From'] = smtp_sender_email
+    message['To'] = recipient_email
+    message['Subject'] = subject
+
+    # Add message body
+    message.attach(MIMEText(body, 'plain'))
+
+    # Connect to SMTP server and send email
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(message)
+
+
 def mailscore():
     if request.method == 'POST':
         try:
-            data = request.get_json()
- 
-            # Check if required field is present
-            if 'stud_id' not in data:
-                return jsonify({'error': 'Missing required field: stud_id'})
- 
+            # Get stud_id and sem_no from request parameters
+            stud_id = request.args.get('stud_id')
+            sem_no = request.args.get('sem_no')
+
+            # Check if stud_id and sem_no are provided
+            if not stud_id or not sem_no:
+                return jsonify({'error': 'Missing parameters: stud_id or sem_no'})
+
+            # Convert sem_no to integer
+            sem_no = int(sem_no)
+
             # Database connection
             connection = db_conn()
             cursor = connection.cursor()
- 
+
             # Get email by stud_id
-            recipient_email = get_email_by_stud_id(data['stud_id'], cursor)
- 
+            recipient_email = get_email_by_stud_id(stud_id, cursor)
+
             if recipient_email:
-                # Get scores by stud_id
-                scores = get_scores_by_stud_id(data['stud_id'], cursor)
- 
+                # Get scores by stud_id and sem_no
+                scores = get_scores_by_stud_id_and_sem(stud_id, sem_no, cursor)
+                stud_name = scores[0][0] if scores else ''
                 # Close connection
                 cursor.close()
                 connection.close()
- 
+
                 # Send email with score details
-                email_body = generate_email_body(data['stud_id'], scores)
-                send_email(recipient_email, 'Scores Added', email_body)
+                email_body = generates_email_body(stud_id, sem_no, stud_name, scores)
+                send_email(recipient_email, f'Semester {sem_no} Scores Added', email_body)
+
                 return jsonify({'message': 'Email sent successfully!'})
             else:
                 cursor.close()
                 connection.close()
                 return jsonify({'error': 'Email not found for the provided stud_id'})
- 
+
         except Exception as e:
             return jsonify({'error': str(e)})
- 
+        
+def generates_email_body(stud_id, sem_no, stud_name, scores):
+    # Replace placeholders with actual values
+    scores_table = ""
+    for score in scores:
+        scores_table += f"""
+            <tr>
+                <td>{score[1]}</td>
+                <td>{score[2]}</td>
+                <td>{score[3]}</td>
+            </tr>
+        """
+
+    body = f"""
+   <html>
+
+<body style="font-family: 'Poppins', sans-serif; letter-spacing: -0.5px;">
+    <div style="background-color: #9747FF; padding: 20px; text-align: center; color: #fff;">
+        <h1>Stellar University</h1>
+        <p>Inspiring Minds, Shaping Futures</p>
+    </div>
+    <div style="padding: 20px;">
+        <h2 style="color: #9747FF;">Dear {stud_name},</h2>
+        <p>We hope this email finds you well. Here are your scores for Semester {sem_no}:</p>
+    </div>
+    <table border="1" cellpadding="10" style="border-collapse: collapse; width: 100%;">
+        <thead>
+            <tr style="background-color: #9747FF; color: #fff;">
+                <th>Course ID</th>
+                <th>Course Name</th>
+                <th>Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Replace the below rows with dynamic data -->
+            {scores_table}
+            <!-- End of dynamic data -->
+        </tbody>
+    </table>
+    <div style="padding: 20px;">
+        <p>If you have any questions or concerns regarding your scores, feel free to contact us.</p>
+        <p>Thank you for your dedication and hard work. We wish you continued success in your studies!</p>
+    </div>
+
+</body>
+
+</html>
+
+    """
+
+    return body
