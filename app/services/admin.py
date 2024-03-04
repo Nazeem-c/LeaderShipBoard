@@ -487,7 +487,8 @@ def generates_email_body(stud_id, sem_no, stud_name, scores):
 <body style="font-family: 'Poppins', sans-serif; letter-spacing: -0.5px;">
 
     <div style="background-color: #9747FF; padding: 20px; text-align: center; color: #fff;">
-        <h1>Stellar University</h1>
+         <img src="Logo.svg" alt="Stellar University Logo" width="100" height="100">
+        <h1 style=>Stellar University</h1>
         <p>Inspiring Minds, Shaping Futures</p>
     </div>
     <div style="padding: 20px;">
