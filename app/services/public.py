@@ -153,7 +153,8 @@ def college_leaderboard():
                             'clg_id': row[0],
                             'clg_name': row[1],
                             'ranking': row[2],
-                            'pass_percentage': row[3]
+                            'pass_percentage': round(row[3] / 1, 2)
+
                         }
                         for row in college_LeadershipBoard
                     ]
@@ -222,7 +223,7 @@ def department_leaderboard():
                             'dep_name': row[1],
                             'rank': row[2],
                             'average_score': row[3],
-                            'pass_percentage': row[4]
+                            'pass_percentage':  round(row[4] / 1, 2)
                         }
                         for row in dept_LeadershipBoard
                     ]

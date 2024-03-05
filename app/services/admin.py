@@ -468,53 +468,126 @@ def mailscore():
 
         except Exception as e:
             return generate_response({'error': str(e)},500)
-        
+
 def generates_email_body(stud_id, sem_no, stud_name, scores):
     # Replace placeholders with actual values
     scores_table = ""
     for score in scores:
         scores_table += f"""
             <tr>
-                <td>{score[1]}</td>
-                <td>{score[2]}</td>
-                <td>{score[3]}</td>
+                <td style="font-size: 15px; line-height: 22px; font-weight: 500; word-break: normal; padding-top: 5px; text-align: left;">{score[1]}</td>
+                <td style="font-size: 15px; line-height: 22px; font-weight: 500; word-break: normal; text-align: center; padding-top: 5px;">{score[2]}</td>
+                <td style="font-size: 15px; line-height: 22px; font-weight: 500; word-break: normal; text-align: right; padding-top: 10px;">{score[3]}</td>
+                
             </tr>
         """
-
+ 
+    intro_text = f"""
+    <div style="font-family:Montserrat, Helvetica, Arial, sans-serif;font-size:20px;font-weight:500;line-height:30px;text-align:left;color:#8189A9;">
+        Hi {stud_name},<br> We hope this email finds you well. Here are your scores for Semester {sem_no}:
+    </div>
+    """
+ 
     body = f"""
-   <html>
+<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+ <head>
+  <title>Stellar University</title>
+  <!--[if !mso]><!-- -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <!--<![endif]-->
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style type="text/css">
+    /* Your CSS styles here */
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500&display=swap" rel="stylesheet" type="text/css">
+  <!--[if mso]>
+    <style type="text/css">
+      /* Outlook-specific CSS styles here */
+    </style>
+  <![endif]-->
+</head>
 
-<body style="font-family: 'Poppins', sans-serif; letter-spacing: -0.5px;">
-
-    <div style="background-color: #9747FF; padding: 20px; text-align: center; color: #fff;">
-        <h1>Stellar University</h1>
-        <p>Inspiring Minds, Shaping Futures</p>
-    </div>
-    <div style="padding: 20px;">
-        <h2 style="color: #9747FF;">Dear {stud_name},</h2>
-        <p>We hope this email finds you well. Here are your scores for Semester {sem_no}:</p>
-    </div>
-    <table border="1" cellpadding="10" style="border-collapse: collapse; width: 100%;">
-        <thead>
-            <tr style="background-color: #9747FF; color: #fff;">
-                <th>Course ID</th>
-                <th>Course Name</th>
-                <th>Score</th>
-            </tr>
-        </thead>
-        <tbody>
-            {scores_table}
-        </tbody>
+<body style="background-color:#F4F5FB;">
+  <!-- Header section -->
+  <!-- You can keep or modify the header section as needed -->
+  <div style="background:#ffffff;background-color:#ffffff;margin:0px auto;border-radius:20px;max-width:600px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;background-color:#ffffff;width:100%;border-radius:20px;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:2px 0;text-align:center;">
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tr>
+                  <td align="left" style="font-size:0px;padding:10px 15px;word-break:break-word;">
+                    {intro_text}
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>
+      </tbody>
     </table>
-    <div style="padding: 20px;">
-        <p>If you have any questions or concerns regarding your scores, feel free to contact us.</p>
-        <p>Thank you for your dedication and hard work. We wish you continued success in your studies!</p>
-    </div>
+  </div>
 
+  <div style="background:#ffffff;margin:10px auto;border-radius:20px;max-width:600px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;background-color:#ffffff;width:100%;border-radius:20px;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:10px 0;text-align:center;">
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tr>
+                  <td align="left" style="font-size:0px;padding:5px 15px;word-break:break-word;">
+                    <table cellpadding="0" cellspacing="0" width="100%" border="0" style="color:#8189A9;font-family:Montserrat, Helvetica, Arial, sans-serif;font-size:13px;line-height:22px;table-layout:auto;width:100%;border:none;">
+                      <tr>
+                        <th style="font-size: 15px; line-height: 22px; font-weight: 800; word-break: normal; padding-top: 5px; text-align: left;">Course ID</th>
+                        <th style="font-size: 15px; line-height: 22px; font-weight: 800; word-break: normal; text-align: center; padding-top: 5px;">Course Name</th>
+                        <th style="font-size: 15px; line-height: 22px; font-weight: 800; word-break: normal; text-align: right; padding-top: 10px;">Score</th>
+                      </tr>
+                      {scores_table}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="background:#edeef6;background-color:#edeef6;margin:0px auto;border-radius:20px;max-width:600px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#edeef6;background-color:#edeef6;width:100%;border-radius:20px;">
+      <tbody>
+        <tr>
+          <td style="direction:ltr;font-size:0px;padding:2px 0;text-align:center;">
+            <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+              <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                <tr>
+                  <td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="float:none;display:inline-table;">
+                      <tr>
+                        <td align="center" style="font-size:0px;padding:5px 15px;word-break:break-word;">
+                          <div style="font-family:Montserrat, Helvetica, Arial, sans-serif;font-size:14px;font-weight:400;line-height:22px;text-align:center;color:#8189A9;">Please do not print this email unless it is absolutely necessary. Lets' go GREEN. Stellar University **** End of Disclaimer ****</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </body>
 
 </html>
-
     """
-
+ 
     return body
+ 
